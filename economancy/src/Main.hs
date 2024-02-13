@@ -19,9 +19,12 @@ data Player = Player {coins :: Int,
                      } deriving (Show, Read, Eq)
               
 data Phase = Investing
+           -- do not ever do this- "use of partial record selector" -
+           -- in haskell
            | Attacking {attacker :: Int,
                         card :: Maybe (Card)}
            | Buy
+           -- however, for making-it-like-elm reasons, I commit this sin
            | End {winner :: Maybe (Int)}
            deriving (Show, Read, Eq)
 

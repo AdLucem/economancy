@@ -4,25 +4,29 @@ module MDP where
 import Text.Printf
 
 
--- typeclasses are very nice when you want to do math
--- over a lot of different type of objects
--- there should be an existing typeclass for this I think
--- This should be a c-type tensor, but... we'll get to that later
-class Reward n where
-  (+)  :: n -> n -> n
-  (-)  :: n -> n -> n
+{- ############ MAIN MODULE ########### -}
+
+{- Typeclasses are very nice when you want to do math over a lot of different    types of objects.
+
+   This should be a c-type tensor, but... we'll get to that later -}
+class Num n => Reward n where
   -- scalar multiplication
   (*+) :: (Num a) => a -> n -> n
 
 
--- typeclasses are also very nice
--- when you want to write a prototype example
--- and then roll out your algorithm on your full example later
+{- Typeclasses are also very nice when you want to write a prototype example
+   and then roll out your algorithm on your full example later. -}
 class MDP state actions where
-  transition :: state -> actions -> state
-  reward :: (Reward r) => state -> actions -> reward 
+  transition :: state -> actions -> Maybe state
+  reward :: (Reward r) => state -> actions -> r 
+
   
-  
+{- Now the thing about the transition function is that it might fail. We can
+   handle this with a 'Maybe'.
+   However, a function with a 'Maybe' output -}
+
+{- ############ okay now this bit is just for our sample MDP ########### -}
+
 wall :: String
 wall = "||"
 

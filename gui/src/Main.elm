@@ -1,27 +1,53 @@
+import Browser
+import Html exposing (Html, Attribute, div, input, text)
+import Html.Attributes exposing (..)
+import Html.Events exposing (onInput)
+
+import Model exposing (Phase, Shop, State)
+
+-- MAIN
 
 
-module Main exposing
-            (Phase, State)
-
-type Day = Day1 | Day2 | Day3
-
-type alias Card = {name : String,
-                   uses : Int}
-
-cardnames : List String
-cardnames = ["Sorcerer's Stipend", "Board of Monopoly", "Incantation", "Worker", "Magic Bean Stock", "Bubble", "Ghost", "Senior Worker", "Gold Fish"]
-
-type alias Player = {coins : Int,
-                     buys  : Int,
-                     cards : List Card}
+main =
+  Browser.sandbox { init = init, update = update, view = view }
 
 
-type Phase = Investing
-           | Attacking {attacker : Int, card : Maybe Card}
-           | Buy
-           | End {winner : Maybe Int}
 
-type Shop = Dict String Int
+-- MODEL
 
-type alias State = {day : Day, phase : Phase, shop : Shop,
-                    players : List Player, playerIndex : Int}
+
+type alias Model =
+  { content : String
+  }
+
+
+init : Model
+init =
+  { content = "" }
+
+
+
+-- UPDATE
+
+
+type Msg
+  = Change String
+
+
+update : Msg -> Model -> Model
+update msg model =
+  case msg of
+    Change newContent ->
+      { model | content = newContent }
+
+
+
+-- VIEW
+
+
+view : Model -> Html Msg
+view model =
+  div []
+    [ input [ placeholder "Text to reverse", value model.content, onInput Change ] []
+    , div [] [ text (String.reverse model.content) ]
+    ]

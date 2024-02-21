@@ -1,43 +1,57 @@
 module Main (main) where
 
-import Data.Map
+import qualified Data.Map as Dict
+import qualified Data.List as L
+
+import Cards
+import World
+import GameMachine
+import Player
+
+{- ########## FUNCTIONS ########## -}
+
+-- | Extract current player from state
+currentPlayer :: State -> Player
+currentPlayer (State _ _ _ pls i) = pls !! i
 
 
-data Day = Day1 | Day2 | Day3
-           deriving (Show, Read, Eq)
+{- ################ Sample Types ############### -}
 
-data Card = Card {name :: String,
-                  uses  :: Int
-                 } deriving (Show, Read, Eq)
+cardlist :: [PlayerCard]
+cardlist =
+  (map initcard [boardOfMonopoly, incantation,
+                 worker, ghost, seniorWorker, goldFish]) ++
+  (map initcard [magicBeanStock]) ++
+  (map initcard [bubble])
+  
+initshop :: Int -> Shop
+initshop numPlayers =
+  let
+    numCards (Simple card _) = numPlayers * (perPlayer card)
+    numCards (MBS (MagicBeanStock card) _) = numPlayers * (perPlayer card)
+    numCards (B (Bubble card) _) = numPlayers * (perPlayer card)
+  in
+    Dict.fromList $ [(key, (numCards key)) | key <- cardlist]
 
-cardnames :: [String]
-cardnames = ["Sorcerer's Stipend", "Board of Monopoly", "Incantation", "Worker", "Magic Bean Stock", "Bubble", "Ghost", "Senior Worker", "Gold Fish"]
+initplayer :: Player
+initplayer = Player 0 0 [Simple sorcerersStipend 0]
 
-data Player = Player {coins :: Int,
-                      buys  :: Int,
-                      cards :: [Card]
-                     } deriving (Show, Read, Eq)
-              
-data Phase = Investing
-           -- do not ever do this- "use of partial record selector" -
-           -- in haskell
-           | Attacking {attacker :: Int,
-                        card :: Maybe (Card)}
-           | Buy
-           -- however, for making-it-like-elm reasons, I commit this sin
-           | End {winner :: Maybe (Int)}
-           deriving (Show, Read, Eq)
+initstate :: State
+initstate = State 1 Investing (initshop 2) [initplayer, initplayer] 0
 
-type Shop = Map String Int
+{- ################ Run The Game ################ -}
 
-data State = State {day         :: Day,
-                    phase       :: Phase,
-                    shop        :: Shop,
-                    players     :: [Player],
-                    playerIndex :: Int
-                   } deriving (Show, Read, Eq)
+-- | Get actions from each of our agents
+-- | and run transition to next world
+step :: State -> State
+step state =
+  let
+    actions = map (playerMove state) (players state)
+  in
+    gameMachine state actions
 
-
+    
 main :: IO ()
 main = do
-  putStrLn "hello world"
+  print $ initstate
+  print $ step initstate

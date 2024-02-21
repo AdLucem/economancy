@@ -18,8 +18,10 @@ extra-source-files:  README.md
 executable economancy
   hs-source-dirs:      src
   main-is:             Main.hs
-  exposed-modules:     MDP,
-                       MCTS
+  other-modules:       Cards,
+                       World,
+                       GameMachine,
+                       Player
   default-language:    Haskell2010
   build-depends:       base >= 4.7 && < 5,
                        aeson,

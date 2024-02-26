@@ -2,11 +2,15 @@ module Main (main) where
 
 import qualified Data.Map as Dict
 import qualified Data.List as L
+import Data.Aeson
+import Data.Aeson.Encode.Pretty
+import qualified Data.ByteString.Lazy.Char8 as B
 
 import Cards
 import World
 import GameMachine
 import Player
+import API
 
 {- ########## FUNCTIONS ########## -}
 
@@ -18,7 +22,7 @@ currentPlayer (State _ _ _ pls i) = pls !! i
 {- ################ Sample Types ############### -}
 
 cardlist :: [PlayerCard]
-cardlist =
+cardlist = 
   (map initcard [boardOfMonopoly, incantation,
                  worker, ghost, seniorWorker, goldFish]) ++
   (map initcard [magicBeanStock]) ++
@@ -50,8 +54,14 @@ step state =
   in
     gameMachine state actions
 
-    
+-- | repeatedly run step until end phase is reached
+runStep :: State -> State
+runStep (State d (End w) sh pl pli) = State d (End w) sh pl pli
+runStep state = step state
+
+
 main :: IO ()
 main = do
-  print $ initstate
-  print $ step initstate
+  putStrLn $ B.unpack $ encodePretty initstate
+  let state1 = step initstate
+  putStrLn $ B.unpack $ encodePretty state1

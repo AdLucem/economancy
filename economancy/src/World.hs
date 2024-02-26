@@ -9,14 +9,15 @@ data Player = Player {coins :: Int,
                       buys  :: Int,
                       cardSet :: [PlayerCard]
                      } deriving (Show, Read, Eq)
-              
+
+type AttackerIndex = Int
+type AttackingCard = Maybe Int
+type WinnerIndex = Maybe Int
+
 data Phase = Investing
-           -- do not ever do this- "use of partial record selector" -
-           -- in haskell
-           | Attacking
+           | Attacking AttackerIndex AttackingCard
            | Buying
-           -- however, for making-it-like-elm reasons, I commit this sin
-           | End
+           | End WinnerIndex
            deriving (Show, Read, Eq)
 
 type Shop = Dict.Map PlayerCard Int
@@ -28,9 +29,16 @@ data State = State {day         :: Day,
                     playerIndex :: Int
                    } deriving (Show, Eq)
 
+
 data Action = Invest Int
             | Attack Int
             | Defend Int
-            | Buy (Maybe String)
+            | Buy (Maybe PlayerCard)
+            | Noop
             deriving (Show, Read, Eq)
+
+-- | Get money invested from investment action
+getMoney :: Action -> Int
+getMoney (Invest x) = x
+getMoney _ = error "Tried to get money from a non-investment action"
 

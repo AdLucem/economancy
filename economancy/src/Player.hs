@@ -6,4 +6,7 @@ import World
 
 -- | A player looks at the state and performs a move
 playerMove :: State -> Player -> Action
-playerMove state pl = Invest 0
+playerMove (State d ph sh pls plI) pl =
+  case ph of
+    Investing -> Invest 0
+    otherwise -> Noop

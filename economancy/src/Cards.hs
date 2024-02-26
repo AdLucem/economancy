@@ -36,7 +36,6 @@ class Card cardType where
 
 {- ########## CLASS INSTANCES ########## -}
 
-
 instance Card BasicCard where
 
   _initcard card = Simple card 1
@@ -71,6 +70,12 @@ instance Card Bubble where
 
 {- ########## FUNCTIONS ########## -}
 
+-- | Return number of times a card can be used
+uses :: PlayerCard -> Int
+uses (Simple _ x) = x
+uses (MBS _ x) = x
+uses (B _ x) = x
+
 -- | Make a type of card into a playercard
 -- | General form of _initcard
 initcard :: (Card a) => a -> PlayerCard
@@ -104,11 +109,22 @@ defend (Simple card u) = _defend card
 defend (MBS card u) = _defend card
 defend (B card u) = _defend card
 
+-- | Return cost of a card
+costPlayerCard :: PlayerCard -> Int
+costPlayerCard (Simple card u) = cost card
+costPlayerCard (MBS (MagicBeanStock card) u) = cost card
+costPlayerCard (B (Bubble card) u) = cost card
+
 -- | Return a card but fainted i.e: 0 uses
 faint :: PlayerCard -> PlayerCard
 faint (Simple card u) = Simple card 0
 faint (MBS card u) = MBS card 0
 faint (B card u) = B card 0
+
+playerCardName :: PlayerCard -> String
+playerCardName (Simple card _) = name card
+playerCardName (MBS (MagicBeanStock card) _) = name card
+playerCardName (B (Bubble card) _) = name card
 
 {- ########## OBJECTS i.e: the actual cards ########## -}
 
@@ -127,6 +143,7 @@ magicBeanStock =
   MagicBeanStock $ BasicCard "Magic Bean Stock" 1 1 1 1 0 (0, 0, 0) 
                   
 bubble = Bubble $ BasicCard "Bubble" 9 2 2 1 0 (0, 0, 0)
+
 
   
 

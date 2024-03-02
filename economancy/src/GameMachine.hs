@@ -100,10 +100,10 @@ cardFight attacker (d:ds) =
 
 -- replaceCard :: [PlayerCard] -> PlayerCard -> [PlayerCard]
 
-stateAttackingT :: State -> [PlayerCard] -> State
-stateAttackingT (State d ph sh pls plI) cards =
-  let
-    attacking = cards !! plI
+-- stateAttackingT :: State -> [PlayerCard] -> State
+-- stateAttackingT (State d ph sh pls plI) cards =
+--  let
+--    attacking = cards !! plI
 --    defending = [c | c <- cards, c /= attacking]
 --    postAttack = cardFight attacking defending
 --  in
@@ -193,12 +193,11 @@ gameMachine state actions =
     True -> case (phase state) of
       Investing ->
         investmentT (stateEarningT state) (map getMoney actions)
-      (Attacking atk atkCard) ->
-        let
-          cardSets = map cardSet (players state)
-          cardsInPlay = map (\x -> 
-        in
-          
+      (Attacking atk atkCard) -> state
+        --let
+        --  cardSets = map cardSet (players state)
+        --  cardsInPlay = map (\x -> 
+        -- in
       Buying -> state
       (End _) -> state
     False -> state

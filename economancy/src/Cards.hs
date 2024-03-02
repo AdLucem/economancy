@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedRecordDot #-}
 
 module Cards where
 
@@ -89,10 +90,12 @@ initcard = _initcard
 
 -- | Return number of coins a card gives you
 -- | Generalizes _earn over any PlayerCard
-earn :: PlayerCard -> Coins -> Day -> Coins
-earn (Simple card u) cns d = _earn card cns d
-earn (MBS card u) cns d = _earn card cns d
-earn (B card u) cns d = _earn card cns d
+earn :: (Card a) => a -> Coins -> Day -> Coins
+earn = _earn 
+-- earn :: PlayerCard -> Coins -> Day -> Coins
+-- earn (Simple card u) cns d = _earn card cns d
+-- earn (MBS card u) cns d = _earn card cns d
+-- earn (B card u) cns d = _earn card cns d
 
 -- | Return attack value of a card if able to attack
 -- | Else returns Nothing

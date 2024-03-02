@@ -20,7 +20,6 @@ executable economancy
   main-is:             Main.hs
   other-modules:       Cards,
                        World,
-                       GameMachine,
                        Player,
                        API
   default-language:    Haskell2010

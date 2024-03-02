@@ -8,9 +8,9 @@ import qualified Data.ByteString.Lazy.Char8 as B
 
 import Cards
 import World
-import GameMachine
+-- import GameMachine
 import Player
-import API
+-- import API
 
 {- ########## FUNCTIONS ########## -}
 
@@ -45,6 +45,7 @@ initstate = State 1 Investing (initshop 2) [initplayer, initplayer] 0
 
 {- ################ Run The Game ################ -}
 
+{-
 -- | Get actions from each of our agents
 -- | and run transition to next world
 step :: State -> State
@@ -58,10 +59,11 @@ step state =
 runStep :: State -> State
 runStep (State d (End w) sh pl pli) = State d (End w) sh pl pli
 runStep state = step state
-
+-}
 
 main :: IO ()
 main = do
-  putStrLn $ B.unpack $ encodePretty initstate
-  let state1 = step initstate
-  putStrLn $ B.unpack $ encodePretty state1
+  print $ _earn magicBeanStock 2 1
+  --putStrLn $ B.unpack $ encodePretty initstate
+  -- let state1 = step initstate
+  -- putStrLn $ B.unpack $ encodePretty state1

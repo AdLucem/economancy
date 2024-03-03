@@ -63,7 +63,7 @@ runStep state = step state
 
 main :: IO ()
 main = do
-  print $ _earn magicBeanStock 2 1
+  print $ cost_ magicBeanStock
   --putStrLn $ B.unpack $ encodePretty initstate
   -- let state1 = step initstate
   -- putStrLn $ B.unpack $ encodePretty state1

@@ -100,23 +100,30 @@ earn = _earn
 -- | Return attack value of a card if able to attack
 -- | Else returns Nothing
 -- | Generalizes _attack over any PlayerCard
-attack :: PlayerCard -> Maybe Int
-attack (Simple card u) = _attack card
-attack (MBS card u) = _attack card
-attack (B card u) = _attack card
+attack :: (Card a) => a -> Maybe Int
+attack = _attack
+-- PlayerCard -> Maybe Int
+--attack (Simple card u) = _attack card
+--attack (MBS card u) = _attack card
+-- attack (B card u) = _attack card
 
 -- | Return defense value of a card
 -- | Generalizes _defend over any PlayerCard
-defend :: PlayerCard -> Maybe Int
-defend (Simple card u) = _defend card
-defend (MBS card u) = _defend card
-defend (B card u) = _defend card
+defend :: (Card a) => a -> Maybe Int
+defend = _defend
+-- defend :: PlayerCard -> Maybe Int
+-- defend (Simple card u) = _defend card
+-- defend (MBS card u) = _defend card
+-- defend (B card u) = _defend card
 
 -- | Return cost of a card
-costPlayerCard :: PlayerCard -> Int
-costPlayerCard (Simple card u) = cost card
-costPlayerCard (MBS (MagicBeanStock card) u) = cost card
-costPlayerCard (B (Bubble card) u) = cost card
+cost_ :: (Card a) => a -> Int
+-- costPlayerCard :: PlayerCard -> Int
+cost_ (BasicCard _ _ _ c _ _ _) = c
+cost_ (MagicBeanStock card) = cost card
+cost_ (Bubble card) = cost card
+-- costPlayerCard (MBS (MagicBeanStock card) u) = cost card
+-- costPlayerCard (B (Bubble card) u) = cost card
 
 -- | Return a card but fainted i.e: 0 uses
 faint :: PlayerCard -> PlayerCard

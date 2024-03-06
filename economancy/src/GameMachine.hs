@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedRecordDot #-}
+
 module GameMachine where
 
 import qualified Data.List as L
@@ -51,6 +53,22 @@ investmentT (State d ph sh pls plI) ls =
     Just idx -> State d (Attacking idx Nothing) sh pls idx
 
 {- ########## Attack Phase Handlers ########## -}
+
+-- | Get attacker Index from phase
+getAttackerIndex :: Phase -> Maybe Int
+getAttackerIndex (Attacking i _) = Just i
+getAttackerIndex _ = Nothing
+
+stateAttackT :: State -> [Action] -> State
+stateAttackT (State d ph sh pls plI) atkIdx atkCard =
+  let
+    plCards = (pls !! atkIdx).cardSet
+    atkCard = plCards !! atkCard
+    phase' = Defending atkIdx (Just atkCard)
+  in
+    State d phase' sh pls plI
+      
+{- ########## Defense Phase Handlers ########## -}
 
 
 -- if any defending card has a higher attack than the
@@ -110,15 +128,19 @@ cardFight attacker (d:ds) =
     
 -- stateBuyT :: State -> Action  -> State
 
+{- ########## Buy Phase Handlers ########## -}
+
+-- stateBuyT :: State -> [Maybe PlayerCard] -> State
 
 {- ########## Phase-Action-Player Contracts ########## -}
 
 -- | Check if action is legal in the current phase 
 isActionLegal :: Phase -> Action -> Bool
 isActionLegal _ Noop = True
+isActionLegal Earning _ = True
 isActionLegal Investing (Invest _) = True
 isActionLegal (Attacking _ _) (Attack _) = True
-isActionLegal (Attacking _ _) (Defend _) = True
+isActionLegal (Defending _ _) (Defend _) = True
 isActionLegal Buying (Buy _) = True
 isActionLegal _ _ = False
 
@@ -145,7 +167,7 @@ attackCheck _ _ _ = error "Argument error in attackCheck"
 -- | Player can only defend if not attacking player
 -- | And they can only defend with a card in their deck with non-zero uses
 defendCheck :: State -> Action -> Player -> Bool
-defendCheck (State _ _ _ players plIndex) (Attack x) (Player c b cards) =
+defendCheck (State _ _ _ players plIndex) (Defend x) (Player c b cards) =
   let
     isDefendingPlayer = ((players !! plIndex) /= (Player c b cards))
     cardInDeck = (x < (length cards))
@@ -191,9 +213,9 @@ gameMachine :: State -> [Action] -> State
 gameMachine state actions =
   case (runChecks state actions) of
     True -> case (phase state) of
-      Investing ->
-        investmentT (stateEarningT state) (map getMoney actions)
-      (Attacking atk atkCard) -> state
+      Earning -> stateEarningT state
+      Investing -> investmentT state (map getMoney actions)
+      (Attacking atk atkCard) -> stateAttackT state actions 
         --let
         --  cardSets = map cardSet (players state)
         --  cardsInPlay = map (\x -> 

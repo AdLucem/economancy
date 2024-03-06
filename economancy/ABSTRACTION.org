@@ -1,0 +1,84 @@
+#+title: The Program at an Abstract Level
+
+
+LOOP:
+    1. for player in players: GameMachine --[State]--> Players
+    2. for player in players: Player --[Action]--> GameMachine
+    3. GameMachine :: State -> [Action] -> State 
+
+* Earning Phase
+
+This one has only one direct step
+
+GameMachine  -- (State + earning) --> Players
+
+
+* Investing Phase
+
+this one I have already implemented
+
+* Attacking Phase 
+
+Step 1:
+GameMachine -> [State phrase=Attacking AttackerIndex Nothing] -> Players 
+
+Step 2:
+for player in players:
+  if playerIndex == AttackerIndex:
+    attackingCardIndex <- Player (State ...)
+    return (Attack attackingCardIndex)
+  else:
+    return Noop
+
+Step 3: 
+phase' -> Defending AttackerIndex (AttackingCard = AttackingCardIndex)
+State -> State (phase = phase')
+
+* Defending Phase
+
+Step 1:
+GameMachine -> Players 
+
+Step 2:
+for player in players:
+  if playerIndex != attackerIndex:
+    defendingCardIndex <- Player 
+    return (Defend defendingCardIndex)
+  else:
+    return Noop
+
+Step 3:
+
+let (atkPlayer, atkCard) <- Defending atkPlayer __AttackingCard__
+ 
+let (defPlayer, defCards) <- extract defcards, playerIds from Defend action
+
+fight
+
+return (State | players -> all players with appropriate cards fainted) 
+
+* Buy Phase
+
+Step 1:
+
+GameMachine -- (State phase = Buy) --> Players
+
+Step 2:
+
+[cardToBuy] <- Players 
+
+Step 3:
+
+- step 3.1:
+for card in shop:
+  if number of players buying the card > number of cards:
+    card leaves the shop and no player gets it
+
+- step 3.2:
+for player in players:
+  if card.price <= player coins:
+    Player <- Player (cards += card, coins -= card.price)
+  else:
+    Player (coins = 0)
+
+return State (players <- [Player]

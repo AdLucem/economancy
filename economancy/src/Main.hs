@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedRecordDot #-}
+
 module Main (main) where
 
 import qualified Data.Map as Dict
@@ -8,9 +10,9 @@ import qualified Data.ByteString.Lazy.Char8 as B
 
 import Cards
 import World
--- import GameMachine
+import GameMachine
 import Player
--- import API
+import API
 
 {- ########## FUNCTIONS ########## -}
 
@@ -43,27 +45,49 @@ initplayer = Player 0 0 [Simple sorcerersStipend 0]
 initstate :: State
 initstate = State 1 Investing (initshop 2) [initplayer, initplayer] 0
 
+
 {- ################ Run The Game ################ -}
 
-{-
--- | Get actions from each of our agents
--- | and run transition to next world
-step :: State -> State
-step state =
+
+type Agent = State -> Action
+
+initagents :: [Agent]
+initagents = [playerMove, playerMove]
+
+-- | Step 1: GameMachine processes the current state
+-- | Before sending it to players
+pretransition :: State -> State
+pretransition state = case state.phase of
+  Earning -> gameMachine state []
+  otherwise -> state
+  
+-- | GameMachine sends State to players
+-- | Players all send an action to GameMachine
+getAction :: State -> [Agent] -> [Action]
+getAction state agents = map (\f -> f state) agents
+
+-- | GameMachine makes a state transition
+transition :: State -> [Action] -> State
+transition state actions = gameMachine state actions
+
+-- | Combine getAction and transition
+step :: State -> [Agent] -> State
+step state agents =
   let
-    actions = map (playerMove state) (players state)
+    state' = pretransition state
+    actions = getAction state' agents
+    nextstate = transition state actions
   in
-    gameMachine state actions
+    nextstate
 
 -- | repeatedly run step until end phase is reached
-runStep :: State -> State
-runStep (State d (End w) sh pl pli) = State d (End w) sh pl pli
-runStep state = step state
--}
+-- runStep :: State -> State
+-- runStep (State d (End w) sh pl pli) = State d (End w) sh pl pli
+-- runStep state = step state
+
 
 main :: IO ()
 main = do
-  print $ cost_ magicBeanStock
-  --putStrLn $ B.unpack $ encodePretty initstate
-  -- let state1 = step initstate
-  -- putStrLn $ B.unpack $ encodePretty state1
+  putStrLn $ B.unpack $ encodePretty initstate
+  let state1 = step initstate initagents 
+  putStrLn $ B.unpack $ encodePretty state1

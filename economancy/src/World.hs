@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedRecordDot #-}
+
 module World where
 
 import qualified Data.Map as Dict
@@ -14,11 +16,14 @@ type AttackerIndex = Int
 type AttackingCard = Maybe Int
 type WinnerIndex = Maybe Int
 
-data Phase = Investing
+data Phase = Earning
+           | Investing
            | Attacking AttackerIndex AttackingCard
+           | Defending AttackerIndex AttackingCard
            | Buying
            | End WinnerIndex
            deriving (Show, Read, Eq)
+
 
 type Shop = Dict.Map PlayerCard Int
 

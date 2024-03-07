@@ -7,18 +7,18 @@ LOOP:
     2. for player in players: Player --[Action]--> GameMachine
     3. GameMachine :: State -> [Action] -> State 
 
-* Earning Phase
+* Game Machine
+** Earning Phase
 
 This one has only one direct step
 
 GameMachine  -- (State + earning) --> Players
 
-
-* Investing Phase
+** Investing Phase
 
 this one I have already implemented
 
-* Attacking Phase 
+** Attacking Phase 
 
 Step 1:
 GameMachine -> [State phrase=Attacking AttackerIndex Nothing] -> Players 
@@ -35,7 +35,7 @@ Step 3:
 phase' -> Defending AttackerIndex (AttackingCard = AttackingCardIndex)
 State -> State (phase = phase')
 
-* Defending Phase
+** Defending Phase
 
 Step 1:
 GameMachine -> Players 
@@ -58,7 +58,7 @@ fight
 
 return (State | players -> all players with appropriate cards fainted) 
 
-* Buy Phase
+** Buy Phase
 
 Step 1:
 
@@ -83,3 +83,126 @@ for player in players:
     Player (coins = 0)
 
 return State (players <- [Player]
+
+
+* MDP
+
+
+#+BEGIN_SRC haskell
+policy :: State -> Action
+
+reward :: State -> Reward 
+
+transition :: State -> Action -> State
+#+END_SRC
+
+** Transition Function
+
+Although this game is technically a multi-agent system, we'll very crudely approximate a single-agent system by making every other player a part of the environment.
+
+So while from the game system's perspective, it takes a set/unordered list of actions:
+
+#+BEGIN_SRC haskell
+gameMachine :: State -> [Action] -> State
+#+END_SRC
+
+From the player's perspective, the **transition function** takes only the player's own action.
+
+#+BEGIN_SRC haskell
+transition :: State -> Action -> State
+#+END_SRC
+
+And this works... how?
+
+
+
+* MCTS
+
+Monte Carlo tree search constructs a =Tree= where a node is a (State, Action, Value) tuple. We use the =Data.Tree= library for this.
+
+#+BEGIN_SRC haskell
+import Data.Tree 
+ 
+data TreeNode = TreeNode {state  :: State,
+                          action :: Action,
+                          value  :: Value}
+
+type MCTSTree := Tree TreeNode
+#+END_SRC 
+
+** Step 1: Selection
+
+Start from root =R= and pick a leaf node =L= via one of three methods:
+
+- Via BFS
+- Randomly
+- Pick best (most promising) child node out of all child nodes
+
+** Step 2: Expansion
+
+Generate all child nodes of =L= and link them to =L=. Randomly follow one child node.
+
+*** Step 2.1: Generating Search Space
+
+#+BEGIN_SRC haskell
+type SearchSpace = [Action]
+#+END_SRC
+
+For each state, we need to generate the set of valid moves from that state.
+
+#+BEGIN_SRC haskell
+Earning := Noop 
+
+Investing := 
+  Invest x; where x <= player.coins
+
+Attacking AttackerIndex _ :=
+  if (AttackerIndex == state.playerIndex)
+  then Attack x
+      where
+         (x belongsTo player.cardSet AND
+          attack x \= Nothing)
+  else Noop
+
+Defending AttackerIndex AttackingCard :=
+  if (AttackerIndex == state.playerIndex)
+  then Noop 
+  else Defend x
+    where 
+      -- note: we can put another condition here where if
+      -- possible, defend x > attack attackingCard
+      (x belongsTo player.cardSet AND
+       defend x \= nothing)
+
+Buying :=
+  if (player.coins > 0) 
+  then Buy (Just x)
+    where
+      (x in state.shop AND
+       cost x <= player.coins)
+  else Buy Nothing
+
+End _ := Noop 
+#+END_SRC
+
+*** Step 2.2: Randomly Sample from Search Space
+
+#+BEGIN_SRC haskell
+randomSample :: SearchSpace -> Action
+#+END_SRC
+
+*** Step 2.3: Complete one full playout from =C=
+
+(And fully expand each node you visit)
+
+#+BEGIN_SRC haskell
+if node'.state.phase \= End _:
+  goto step 3
+else:
+  state' = transition state action
+  node' = TreeNode (state', ...)
+#+END_SRC
+
+** Step 3:
+
+Once end state is reached, update =C=, then backpropagate all the way from =C= to root =R=.

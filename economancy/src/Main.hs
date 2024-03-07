@@ -91,3 +91,4 @@ main = do
   putStrLn $ B.unpack $ encodePretty initstate
   let state1 = step initstate initagents 
   putStrLn $ B.unpack $ encodePretty state1
+  

@@ -59,12 +59,31 @@ getAttackerIndex :: Phase -> Maybe Int
 getAttackerIndex (Attacking i _) = Just i
 getAttackerIndex _ = Nothing
 
-stateAttackT :: State -> [Action] -> State
-stateAttackT (State d ph sh pls plI) atkIdx atkCard =
+-- | Given a player and an attacking action
+-- | Get an attacking card index (if it exists)
+-- | Else return a Nothing
+getAttackingCard :: Player -> Action -> AttackingCard
+getAttackingCard (Player _ _ cards) attack =
   let
-    plCards = (pls !! atkIdx).cardSet
-    atkCard = plCards !! atkCard
-    phase' = Defending atkIdx (Just atkCard)
+    -- card index (extracted from action)
+    atkCardIndex = getCardIndex attack
+    -- attacker's card (wrapped in a Maybe)
+    atkCardMaybe = getCard cards atkCardIndex
+  in
+    case atkCardMaybe of
+      Nothing -> Nothing
+      Just _ -> Just atkCardIndex
+  
+  
+stateAttackT :: State -> [Action] ->
+                AttackerIndex -> State
+stateAttackT (State d ph sh pls plI) actions atkIdx =
+  let
+    -- cards of attacking player
+    atkPlayerCards = (pls !! atkIdx).cardSet
+    -- action of attacking player
+    atkAction = actions !! atkIdx
+    phase' = Defending atkIdx (getAttackingCard (pls !! atkIdx) atkAction)
   in
     State d phase' sh pls plI
       
@@ -118,8 +137,29 @@ cardFight attacker (d:ds) =
 
 -- replaceCard :: [PlayerCard] -> PlayerCard -> [PlayerCard]
 
--- stateAttackingT :: State -> [PlayerCard] -> State
--- stateAttackingT (State d ph sh pls plI) cards =
+-- | Extract (playerIdx, defendingCard) for all players
+-- | except attacking player 
+extractDefendingCards :: [Player] -> [Action] ->
+                         AttackerIndex -> (Int, Maybe PlayerCard)
+extractDefendingCards players actions attackerIndex =
+  let 
+    idPlAc = zip3 [0..((length players)-1)] players actions
+    defPlAc = filter (\(i,p,a) -> a \= Noop) iPlAc
+    idPlCardIdx = map (\(i, p, a) -> (i, p, (getCardIndex a))) defPlAc
+  in
+    map (\(i,p,ci) -> (i, (getCard p.cardSet ci))) idPlCardIdx
+
+
+stateDefendT :: State -> [Action] ->
+                AttackerIndex -> AttackingCard -> State
+stateDefendT (State d ph sh pls plI) actions atkIdx cardIdx =
+  let
+    -- if player is attacking player then do not extract card
+    -- 
+    attackCard = (pls !! atkIdx).cardSet !! cardIdx
+    defPlayerCards = extractDefendingCards pls actions atkIdx
+  in
+    State d ph sh pls plI
 --  let
 --    attacking = cards !! plI
 --    defending = [c | c <- cards, c /= attacking]
@@ -215,11 +255,9 @@ gameMachine state actions =
     True -> case (phase state) of
       Earning -> stateEarningT state
       Investing -> investmentT state (map getMoney actions)
-      (Attacking atk atkCard) -> stateAttackT state actions 
-        --let
-        --  cardSets = map cardSet (players state)
-        --  cardsInPlay = map (\x -> 
-        -- in
+      (Attacking atk atkCard) -> stateAttackT state actions atk 
+      (Defending atk atkCard) ->
+        stateDefendT state actions atk atkCard 
       Buying -> state
       (End _) -> state
     False -> state

@@ -42,8 +42,21 @@ data Action = Invest Int
             | Noop
             deriving (Show, Read, Eq)
 
+-- | Get a card from a list by index (if the index is valid)
+-- | if index = -1 then return nothing
+getCard :: [PlayerCard] -> Int -> Maybe PlayerCard
+getCard cardlist index =
+  if ((index >= 0) && ((length cardlist) < index))
+  then Nothing
+  else Just (cardlist !! index)
+  
 -- | Get money invested from investment action
 getMoney :: Action -> Int
 getMoney (Invest x) = x
 getMoney _ = error "Tried to get money from a non-investment action"
 
+-- | Get card index from an attack/defend action
+getCardIndex :: Action -> Int
+getCardIndex (Attack x) = x
+getCardIndex (Defend x) = x
+getCardIndex _ = error "Tried to get card index from a non attack/defend action"

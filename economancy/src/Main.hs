@@ -12,6 +12,8 @@ import Cards
 import World
 import GameMachine
 import Player
+import ValidMoves
+import MCTS
 import API
 
 {- ########## FUNCTIONS ########## -}
@@ -45,6 +47,19 @@ initplayer = Player 0 0 [Simple sorcerersStipend 0]
 initstate :: State
 initstate = State 1 Investing (initshop 2) [initplayer, initplayer] 0
 
+player1 :: Player
+player1 = Player 10 0 [(Simple sorcerersStipend 0), (Simple seniorWorker 0)]
+
+state11 :: State
+state11 = State 1 (Attacking 0 Nothing) (initshop 2)
+               [player1, player1] 0
+
+state12 :: State
+state12 = State 1 (Defending 0 Nothing) (initshop 2)
+               [player1, player1] 1
+
+state21 :: State
+state21 = State 1 Investing (initshop 2) [player1, player1] 0
 
 {- ################ Run The Game ################ -}
 
@@ -88,7 +103,6 @@ step state agents =
 
 main :: IO ()
 main = do
-  putStrLn $ B.unpack $ encodePretty initstate
-  let state1 = step initstate initagents 
-  putStrLn $ B.unpack $ encodePretty state1
-  
+  print $ validMoves state11
+  print $ validMoves state21
+  print $ validMoves state12

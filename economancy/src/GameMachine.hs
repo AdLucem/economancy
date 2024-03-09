@@ -136,7 +136,7 @@ cardFight attacker (d:ds) =
     Just (a', d') -> d' : (cardFight a' ds) 
 
 -- replaceCard :: [PlayerCard] -> PlayerCard -> [PlayerCard]
-
+{-
 -- | Extract (playerIdx, defendingCard) for all players
 -- | except attacking player 
 extractDefendingCards :: [Player] -> [Action] ->
@@ -159,7 +159,7 @@ stateDefendT (State d ph sh pls plI) actions atkIdx cardIdx =
     attackCard = (pls !! atkIdx).cardSet !! cardIdx
     defPlayerCards = extractDefendingCards pls actions atkIdx
   in
-    State d ph sh pls plI
+    State d ph sh pls plI -}
 --  let
 --    attacking = cards !! plI
 --    defending = [c | c <- cards, c /= attacking]
@@ -256,8 +256,8 @@ gameMachine state actions =
       Earning -> stateEarningT state
       Investing -> investmentT state (map getMoney actions)
       (Attacking atk atkCard) -> stateAttackT state actions atk 
-      (Defending atk atkCard) ->
-        stateDefendT state actions atk atkCard 
+      (Defending atk atkCard) -> state
+        -- stateDefendT state actions atk atkCard 
       Buying -> state
       (End _) -> state
     False -> state

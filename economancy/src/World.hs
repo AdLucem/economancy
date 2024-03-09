@@ -42,6 +42,17 @@ data Action = Invest Int
             | Noop
             deriving (Show, Read, Eq)
 
+
+-- | get who is attacking from Attack or Defend phase
+whoIsAttacking :: Phase -> Int
+whoIsAttacking (Attacking i _) = i
+whoIsAttacking (Defending i _) = i
+whoIsAttacking _ = error "Tried to run whoIsAttacking on non-Attack/Defend phase"
+
+-- | Get current player from state
+currentPlayer :: State -> Player
+currentPlayer state = state.players !! state.playerIndex
+
 -- | Get a card from a list by index (if the index is valid)
 -- | if index = -1 then return nothing
 getCard :: [PlayerCard] -> Int -> Maybe PlayerCard

@@ -127,7 +127,7 @@ data TreeNode = TreeNode {state  :: State,
                           action :: Action,
                           value  :: Value}
 
-type MCTSTree := Tree TreeNode
+type MCTree := Tree TreeNode
 #+END_SRC 
 
 ** Step 1: Selection
@@ -137,6 +137,22 @@ Start from root =R= and pick a leaf node =L= via one of three methods:
 - Via BFS
 - Randomly
 - Pick best (most promising) child node out of all child nodes
+
+Here, we demonstrate flattening the tree and picking a leaf node from the flattened tree using some given function =heuristic= (that takes a list of nodes and selects one particular node and returns that) 
+
+#+BEGIN_SRC haskell
+isLeaf :: MCTree -> Bool
+isLeaf (Node _ []) = True 
+isLeaf _ = False
+
+selection :: MCTree -> ([MCTree] -> MCTree) -> MCTree
+selection root heuristic =
+  let 
+    allNodes = flatten root
+    allLeaves = filter (\x -> isLeaf x) allNodes
+  in
+    heuristic allLeaves 
+#+END_SRC
 
 ** Step 2: Expansion
 
@@ -185,17 +201,54 @@ Buying :=
 End _ := Noop 
 #+END_SRC
 
-*** Step 2.2: Randomly Sample from Search Space
+We take the State at the given node and generate a =search space= from it.
 
 #+BEGIN_SRC haskell
-randomSample :: SearchSpace -> Action
+genSearchSpace :: TreeNode -> SearchSpace 
+genSearchSpace (TreeNode (state _ _)) = getAllValidMoves state 
+#+END_SRC
+
+We spin off each element of the search space into its own node and attach it to current node.
+
+#+BEGIN_SRC haskell
+expandLeaf :: MCTree -> MCTree 
+expandLeaf (Node node children) = 
+  let
+    searchSpace = genSearchSpace node
+    mkChildren = map (\ac -> TreeNode (transition node.state ac) ac (0, 0)) searchSpace   
+  in
+    Node node mkChildren
+#+END_SRC
+
+*** Step 2.2: Randomly Sample from Search Space
+
+We now randomly sample from the children of the given node to get a child node =C=.
+
+#+BEGIN_SRC haskell
+randomChild :: MCTree -> MCTree 
+randomChild (Node node children) = [random logic]
 #+END_SRC
 
 *** Step 2.3: Complete one full playout from =C=
 
-(And fully expand each node you visit)
+
+We do this by repeatedly applying =transition state action=
 
 #+BEGIN_SRC haskell
+
+type GameResult = Win | Lose | Draw
+
+-- get phase from MCTree node
+state :: MCTree -> Phase
+
+playout :: MCTree -> GameResult
+playout MCTree = if (phase MCTree == End _)
+  then return result
+  else playout (next MCTree) 
+#+END_SRC
+
+#+BEGIN_SRC haskell
+
 if node'.state.phase \= End _:
   goto step 3
 else:
@@ -206,3 +259,15 @@ else:
 ** Step 3:
 
 Once end state is reached, update =C=, then backpropagate all the way from =C= to root =R=.
+
+* You May Have Noticed That The Above Algorithm Is Stateful
+
+Yes.
+
+We could try running tree search as a list comprehension:
+
+#+BEGIN_SRC haskell
+
+#+END_SRC
+
+

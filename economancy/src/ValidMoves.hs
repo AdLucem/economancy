@@ -12,8 +12,6 @@ import qualified Data.ByteString.Lazy.Char8 as B
 
 import Cards
 import World
-import GameMachine
-import Player
 
 -- | There is no valid move in the Earning state
 -- | Player should not be able to access this state

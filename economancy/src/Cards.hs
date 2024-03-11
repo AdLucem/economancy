@@ -120,6 +120,12 @@ defend (Simple card u) = _defend card
 defend (MBS card u) = _defend card
 defend (B card u) = _defend card
 
+-- | Return victorypoints a card has
+getVictoryPoints :: PlayerCard -> Int
+getVictoryPoints (Simple card _) = victoryPoints card
+getVictoryPoints (MBS (MagicBeanStock card) u) = victoryPoints card
+getVictoryPoints (B (Bubble card) u) = victoryPoints card
+
 -- | Return cost of a card
 -- cardcost :: (Card a) => a -> Int
 -- cardcost = _cost
@@ -133,6 +139,16 @@ faint :: PlayerCard -> PlayerCard
 faint (Simple card u) = Simple card 0
 faint (MBS card u) = MBS card 0
 faint (B card u) = B card 0
+
+-- | Return a card but refreshed i.e: 1 uses
+refreshed :: PlayerCard -> PlayerCard
+refreshed (Simple card u) =
+  if (card == sorcerersStipend)
+  then (Simple card 0)
+  else (Simple card 1)
+refreshed (MBS card u) = MBS card 1
+refreshed (B card u) = B card 1
+
 
 playerCardName :: PlayerCard -> String
 playerCardName (Simple card _) = name card

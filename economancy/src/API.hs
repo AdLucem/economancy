@@ -29,6 +29,7 @@ instance ToJSON Player where
 
 
 instance ToJSON Phase where
+  toJSON Earning = object ["name" .= (T.pack "investing")]
   toJSON Investing =
     object ["name" .= (T.pack "investing")]
   toJSON (Attacking idx Nothing) =
@@ -36,6 +37,10 @@ instance ToJSON Phase where
             "attacker" .= idx,
             "attacker-card" .= (T.pack "false")]
   toJSON (Attacking idx (Just x)) =
+    object ["name" .= (T.pack "attacking"),
+            "attacker" .= idx,
+            "attacker-card" .= x]
+  toJSON (Defending idx (Just x)) =
     object ["name" .= (T.pack "attacking"),
             "attacker" .= idx,
             "attacker-card" .= x]

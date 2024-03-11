@@ -43,6 +43,28 @@ data Action = Invest Int
             deriving (Show, Read, Eq)
 
 
+-- | Increment day
+incrementDay :: Day -> Day
+incrementDay 1 = 2
+incrementDay 2 = 3
+incrementDay 3 = 1
+incrementDay _ = error "Day is reaching a weird value"
+
+-- Refresh state i.e: reset all player cards
+incrementState :: State -> State
+incrementState state =
+  if (state.day == 3)
+  then (State state.day state.phase state.shop (refreshCards state.players) state.playerIndex)
+  else state
+
+-- refresh player cards
+refreshCards :: [Player] -> [Player]
+refreshCards players =
+  let
+    refreshPlayer (Player cns bys crds) = Player cns bys (map refreshed crds)
+  in
+    map refreshPlayer players
+    
 -- | get who is attacking from Attack or Defend phase
 whoIsAttacking :: Phase -> Int
 whoIsAttacking (Attacking i _) = i
@@ -70,4 +92,15 @@ getMoney _ = error "Tried to get money from a non-investment action"
 getCardIndex :: Action -> Int
 getCardIndex (Attack x) = x
 getCardIndex (Defend x) = x
+getCardIndex Noop = -1
 getCardIndex _ = error "Tried to get card index from a non attack/defend action"
+
+-- | Get a Maybe Playercard from a buy action
+getMaybeCard :: Action -> Maybe PlayerCard
+getMaybeCard (Buy x) = x
+getMaybeCard _ = error "Tried to get a Maybe Playercard from a non buy action"
+
+-- | If phase is end state, get winner index from end state
+getWinner :: Phase -> Maybe Int
+getWinner (End wi) = wi
+getWinner _ = Nothing

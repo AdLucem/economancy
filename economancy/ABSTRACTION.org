@@ -96,7 +96,8 @@ reward :: State -> Reward
 transition :: State -> Action -> State
 #+END_SRC
 
-** Transition Function
+
+* MultiAgent to Single Agent: We Are All Player 0
 
 Although this game is technically a multi-agent system, we'll very crudely approximate a single-agent system by making every other player a part of the environment.
 
@@ -108,24 +109,34 @@ gameMachine :: State -> [Action] -> State
 
 From the player's perspective, the **transition function** takes only the player's own action.
 
+We hack this by:
+
+(a) Defining a step function that takes a list of `policies`, one for each player - so every player can provide their own policy function to the MDP
+
+(b) Using the above step function to define a transition function- **instantiated for a specific set of policies**- that simply takes a `State` and returns another state (the actions are implicitly provided by the `agent`s.)
+ 
 #+BEGIN_SRC haskell
-transition :: State -> Action -> State
+step :: State -> [Agent] -> State 
+
+-- | Instantiated transition function
+instanTransition :: State -> State
+instanTransition = step somePolicies 
 #+END_SRC
 
-And this works... how?
-
-
+and (c): **While training, we always assume that we are training the policy for player 0**, no matter how many players are in the list.
 
 * MCTS
 
 Monte Carlo tree search constructs a =Tree= where a node is a (State, Action, Value) tuple. We use the =Data.Tree= library for this.
+
+For this particular implementation, we take Value as number of wins + number of draws / number of playouts.
 
 #+BEGIN_SRC haskell
 import Data.Tree 
  
 data TreeNode = TreeNode {state  :: State,
                           action :: Action,
-                          value  :: Value}
+                          value  :: (Int, Int)}
 
 type MCTree := Tree TreeNode
 #+END_SRC 
@@ -138,23 +149,25 @@ Start from root =R= and pick a leaf node =L= via one of three methods:
 - Randomly
 - Pick best (most promising) child node out of all child nodes
 
-Here, we demonstrate flattening the tree and picking a leaf node from the flattened tree using some given function =heuristic= (that takes a list of nodes and selects one particular node and returns that) 
+Here, we demonstrate finding a leaf node in a treenode using some given function =heuristic= (that takes a list of nodes and selects one particular node and returns that). We use a random function in the =heuristic=. 
 
 #+BEGIN_SRC haskell
 isLeaf :: MCTree -> Bool
 isLeaf (Node _ []) = True 
 isLeaf _ = False
 
-selection :: MCTree -> ([MCTree] -> MCTree) -> MCTree
-selection root heuristic =
-  let 
-    allNodes = flatten root
-    allLeaves = filter (\x -> isLeaf x) allNodes
-  in
-    heuristic allLeaves 
+selection :: (StdGen ->[MCTree] -> (MCTree, StdGen))
+          -> StdGen -> MCTree -> MCTree
+selection heuristic randomGen root =
+  case (isLeaf root) of
+    True -> root
+    False -> let
+      (bestChild, gen') = heuristic randomGen root.subForest
+      in
+        selection heuristic gen' bestChild
 #+END_SRC
 
-** Step 2: Expansion
+** Step 2: Expansion And Backpropagate
 
 Generate all child nodes of =L= and link them to =L=. Randomly follow one child node.
 
@@ -232,42 +245,57 @@ randomChild (Node node children) = [random logic]
 *** Step 2.3: Complete one full playout from =C=
 
 
-We do this by repeatedly applying =transition state action=
+We assume we have a `trajectory :: [State] -> Win | Lose | Draw` function, that takes an initial state and plays out an entire game from that point, and then returns the final result.
 
 #+BEGIN_SRC haskell
 
-type GameResult = Win | Lose | Draw
-
--- get phase from MCTree node
-state :: MCTree -> Phase
+-- get state from MCTree node
+state :: MCTree -> State
 
 playout :: MCTree -> GameResult
-playout MCTree = if (phase MCTree == End _)
-  then return result
-  else playout (next MCTree) 
+playout MCTree = trajectory [(state MCTree)]  
 #+END_SRC
 
+Implementation details are slightly different- remember, because we have multiple functions, our `trajectory` function returns a `Win | Lose | Draw` for every player. And we only take the result for `player 0`, so:
+ 
 #+BEGIN_SRC haskell
-
-if node'.state.phase \= End _:
-  goto step 3
-else:
-  state' = transition state action
-  node' = TreeNode (state', ...)
+playout :: MCTree -> GameResult
+playout MCTree = head $ trajectory [(state MCTree)]
 #+END_SRC
 
 ** Step 3:
 
-Once end state is reached, update =C=, then backpropagate all the way from =C= to root =R=.
+Once end state is reached, update =C=, then backpropagate (update values) all the way from =C= to root =R=.
 
-* You May Have Noticed That The Above Algorithm Is Stateful
+We actually integrate this with step 2- we have a single function to both expand and backpropagate.
 
-Yes.
+Assume we have a function `heuristic` that, given a list of nodes, will return the best node.
 
-We could try running tree search as a list comprehension:
-
-#+BEGIN_SRC haskell
-
+#+BEGIN_SRC  haskell
+heuristic :: [Node] -> Node
 #+END_SRC
+
+#+BEGIN_SRC haskell 
+
+expandBackprop :: MCTree -> MCTree
+expandBackprop (Node node children) = 
+    case (isChild node) of
+      True -> let 
+                result = playout (Node node children)
+		toVal x = if (x == Lose) then 0 else 1
+                value' = (((fst node.value) + (toVal x)), ((snd node.value) + 1))
+              in
+	        Node (TreeNode node.state node.action value') []
+      False -> let
+                 -- recurse this function over all children
+                 children' = map expandBackprop children
+                 -- collect total wins/playouts from all children
+                 totalWins = [(fst c.value) | c <- children']
+                 totalPlayouts = [(snd c.value) | c <- children']
+                 value' = (totalWins, totalPlayouts)
+               in
+                 Node (node.state node.action value') children'
+#+END_SRC
+
 
 

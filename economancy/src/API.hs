@@ -20,6 +20,10 @@ instance ToJSON PlayerCard where
     object ["name" .= (playerCardName playerCard),
             "uses" .= (uses playerCard)]
 
+instance FromJSON PlayerCard where
+  parseJSON = withObject "PlayerCard" $ \ v ->
+    strToCard <$> v .: "name"
+              <*> v .: "uses"
 
 instance ToJSON Player where
   toJSON (Player coins buys cards) =
@@ -27,7 +31,13 @@ instance ToJSON Player where
             "buys"  .= buys,
             "cards" .= (map toJSON cards)]
 
+instance FromJSON Player where
+  parseJSON = withObject "Player" $ \v ->
+    Player <$> v .: "coins"
+           <*> v .: "buys"
+           <*> v .: "cards"
 
+ 
 instance ToJSON Phase where
   toJSON Earning = object ["name" .= (T.pack "investing")]
   toJSON Investing =
@@ -52,6 +62,26 @@ instance ToJSON Phase where
   toJSON (End (Just wi)) =
     object ["name" .= (T.pack "end"),
             "winner" .= wi]
+
+{-
+instance FromJSON Phase where
+  parseJSON (Object obj) =  do
+    name <- obj .: "name"
+    case name of
+      "investing" -> return Investing
+      "attacking" -> do
+        attackerID   <- obj .: "attacker" 
+        attackerCard <- obj .: "attacker-card"
+        case attackerCard of
+          "false" -> return $ Attacking attackerID Nothing
+          x       -> return $ Defending attackerID (Just $ read x)
+      "buy" -> return Buying
+      "end" -> do
+        win <- obj .: "winner"
+        case win of
+          "false" -> return $ End Nothing
+          x       -> return $ End (Just $ read x)
+-}
 
 type ShopJSON = Dict.Map String Int
 

@@ -174,5 +174,19 @@ magicBeanStock =
 bubble = Bubble $ BasicCard "Bubble" 9 2 2 1 0 (0, 0, 0)
 
 
+strToCard :: String -> Int -> PlayerCard
+strToCard s uses =
+  case s of
+    "Sorcerer's Stipend" -> Simple sorcerersStipend uses
+    "Board Of Monopoly"  -> Simple boardOfMonopoly uses
+    "Incantation"        -> Simple incantation uses
+    "Worker"             -> Simple worker uses
+    "Ghost"              -> Simple ghost uses
+    "Senior Worker"      -> Simple seniorWorker uses
+    "Gold Fish"          -> Simple goldFish uses
+    "Magic Bean Stock"   -> MBS magicBeanStock uses
+    "Bubble"             -> B bubble uses
+
+
   
 

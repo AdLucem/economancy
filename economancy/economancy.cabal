@@ -23,7 +23,9 @@ executable economancy
                        Player,
                        GameMachine,
                        ValidMoves,
-                       API
+                       API,
+                       MCTS,
+                       RunGame
   default-language:    Haskell2010
   build-depends:       base >= 4.7 && < 5,
                        aeson,
@@ -31,7 +33,8 @@ executable economancy
                        text,
                        aeson-pretty,
                        bytestring,
-                       random
+                       random,
+                       time
   ghc-options:         -Wall
                        -Wcompat
                        -Widentities

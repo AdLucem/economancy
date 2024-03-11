@@ -125,8 +125,10 @@ randomTF seed state = step state [(randomPlayer (mkStdGen seed)), (randomPlayer 
 
 -- main :: IO (State)
 main = do
- let initnode = T.Node (TreeNode initstate Noop (0, 0)) []
- runMCTS 5 initnode
+  seed <- getSeed
+  print $ validMoves initstate
+-- let initnode = T.Node (TreeNode initstate Noop (0, 0)) []
+-- runMCTS 5 initnode
   --seed <- getSeed
   -- let tf = randomTF seed
   --let tj = trajectory (instanTransition (mkStdGen seed)) [initstate]

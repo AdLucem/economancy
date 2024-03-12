@@ -123,10 +123,29 @@ takesteps state n = do
 randomTF :: Int -> State -> State
 randomTF seed state = step state [(randomPlayer (mkStdGen seed)), (randomPlayer (mkStdGen (seed*2)))]
 
+-- readAndDecode :: B.ByteString -> State
+-- readAndDecode s = fromStateJSON (fromMaybeJSON (decode s))
+
+readAndDecode :: B.ByteString -> Maybe StateJSON
+readAndDecode s = decode s
+
+fromMaybeJSON :: (FromJSON a) => Maybe a -> a
+fromMaybeJSON Nothing = error "decoding error!"
+fromMaybeJSON (Just s) = s
+
+fromMaybeState :: Maybe State -> State
+fromMaybeState Nothing = error "decoding error!"
+fromMaybeState (Just s) = s
 -- main :: IO (State)
+
 main = do
-  seed <- getSeed
-  print $ validMoves initstate
+  let initjson = encode initstate
+  print initjson
+  print $ readAndDecode initjson
+  -- let state = readAndDecode initjson
+  -- print $ prettystate state
+  -- seed <- getSeed
+  -- print $ validMoves initstate
 -- let initnode = T.Node (TreeNode initstate Noop (0, 0)) []
 -- runMCTS 5 initnode
   --seed <- getSeed

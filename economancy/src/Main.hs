@@ -11,6 +11,8 @@ import qualified Data.Tree as T
 import Data.Time.Clock
 import System.Random
 import GHC.Conc.IO
+import System.IO
+
 
 import Cards
 import World
@@ -69,13 +71,16 @@ state21 = State 1 Earning (initshop 2) [player1, player1] 0
 initagents :: [Agent]
 initagents = [playerMove, playerMove]
 
+initnode :: MCTree
+initnode = T.Node (TreeNode initstate Noop (0,0)) []
+
+tonode :: State -> MCTree
+tonode state = T.Node (TreeNode state Noop (0,0)) []
 -- | repeatedly run step until end phase is reached
 -- runStep :: State -> State
 -- runStep (State d (End w) sh pl pli) = State d (End w) sh pl pli
 -- runStep state = step state
-
-prettystate :: State -> String
-prettystate state = B.unpack $ encodePretty state
+{-
 
 f :: State -> Int -> State
 f (State d ph sh pls plI) i = State d ph sh pls i
@@ -105,50 +110,73 @@ randomstep state = do
 mkSeed :: DiffTime -> Int
 mkSeed x = (floor (x * 1000000000)) `mod` 1000000
 
+
+
+
+fromMaybeState :: Maybe State -> State
+fromMaybeState Nothing = error "decoding error!"
+fromMaybeState (Just s) = s
+-- main :: IO (State)
+-}
+
+mkSeed :: DiffTime -> Int
+mkSeed x = (floor (x * 1000000000)) `mod` 1000000
+
 getSeed :: IO Int
 getSeed = do
   threadDelay 1000
   t1 <- getCurrentTime
   return $ mkSeed t1.utctDayTime
 
-
-takesteps :: State -> Int -> IO (State)
-takesteps state 0 = return state
-takesteps state n = do
-  putStrLn $ prettystate state
-  state' <- randomstep state
-  takesteps state' (n-1)
-
-
 randomTF :: Int -> State -> State
 randomTF seed state = step state [(randomPlayer (mkStdGen seed)), (randomPlayer (mkStdGen (seed*2)))]
 
--- readAndDecode :: B.ByteString -> State
--- readAndDecode s = fromStateJSON (fromMaybeJSON (decode s))
 
-readAndDecode :: B.ByteString -> Maybe StateJSON
-readAndDecode s = decode s
+f :: State -> Int -> State
+f (State d ph sh pls plI) i = State d ph sh pls i
+
+randomstep :: State -> IO State
+randomstep state = do
+  
+  seed1 <- getSeed
+  seed2 <- getSeed 
+
+  let state' = pretransition state
+  let agents = [(randomPlayer (mkStdGen seed1)), (randomPlayer (mkStdGen seed2))]
+  print $ validMoves (f state' 0)
+  print $ validMoves (f state' 1)
+  let actions = getAction state' agents
+  print actions
+  
+  return $ step state' agents
+
 
 fromMaybeJSON :: (FromJSON a) => Maybe a -> a
 fromMaybeJSON Nothing = error "decoding error!"
 fromMaybeJSON (Just s) = s
 
-fromMaybeState :: Maybe State -> State
-fromMaybeState Nothing = error "decoding error!"
-fromMaybeState (Just s) = s
--- main :: IO (State)
+encodeState :: State -> B.ByteString
+encodeState = encode . toStateJSON
 
+decodeState :: B.ByteString -> State
+decodeState = fromStateJSON . fromMaybeJSON . decode
+
+prettystate :: State -> String
+prettystate state = B.unpack $ encodePretty $ toStateJSON state
+
+loop = do
+  line <- getLine
+  print line
+  print "-------------"
+  let state = decodeState (B.pack line)
+  print state
+  mcts_tree <- runMCTS 50 (tonode state)
+  let move = pickmove (mcts_tree, (mkStdGen 137))
+  print move
+  loop
+  
 main = do
-  let initjson = encode initstate
-  print initjson
-  print $ readAndDecode initjson
-  -- let state = readAndDecode initjson
-  -- print $ prettystate state
-  -- seed <- getSeed
-  -- print $ validMoves initstate
--- let initnode = T.Node (TreeNode initstate Noop (0, 0)) []
--- runMCTS 5 initnode
-  --seed <- getSeed
-  -- let tf = randomTF seed
-  --let tj = trajectory (instanTransition (mkStdGen seed)) [initstate]
-  -- print tj
+  print "hello world"
+  loop
+  
+--  runMCTS 10 initnode

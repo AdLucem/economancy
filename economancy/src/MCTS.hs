@@ -22,12 +22,16 @@ data TreeNode =
             value  :: (Int, Int)} deriving (Eq)
 
 instance Show TreeNode where
-  show (TreeNode _ ac v) = (show ac) ++ "**" ++ (show $ (fromIntegral $ fst v)/(fromIntegral $ snd v))
+  show (TreeNode _ ac v) =
+    -- (show ac) ++ " * " ++
+    (show $ intDiv v)
   
 -- okay at least implementing trees is not our headache
 -- we're just using the library
 type MCTree = T.Tree TreeNode
 
+
+{- ########## UTILS ########## -}
 
 -- | check if node is a leaf node i.e: has no children 
 isLeaf :: MCTree -> Bool
@@ -37,6 +41,50 @@ isLeaf _ = False
 -- | Get state from MCTree node
 getState :: MCTree -> State
 getState (T.Node node _) = node.state
+
+-- | convert from result to score
+score :: GameResult -> Int
+score result = case result of
+  Win  -> 2
+  Draw -> 1
+  Lose -> 0
+
+-- | update the current node according to score from 1 playout
+updateValue :: MCTree -> Int -> MCTree
+updateValue (T.Node (TreeNode s a (n, d)) ch) score =
+  (T.Node (TreeNode s a ((n + score), (d + 1))) ch)
+
+-- | Divide two Int values in a tuple- fst / snd
+intDiv :: (Int, Int) -> Float
+intDiv (a, b) = (fromIntegral a) / (fromIntegral b)
+
+-- | Update a node with new children
+-- | where (value node) = sum (values children)
+updateChildren :: MCTree -> [MCTree] -> MCTree
+updateChildren node children =
+  let
+    tnode = node.rootLabel
+    value' = foldl (\(x1, y1) (x2, y2) -> ((x1 + x2), (y1 + y2)))
+                   (0, 0) [tnode.value | c <- children]
+  in
+    T.Node (TreeNode tnode.state tnode.action value') children
+
+-- | Update value of node from children
+updateValueChildren :: MCTree -> MCTree
+updateValueChildren node = updateChildren node node.subForest
+
+-- | Over tree
+overTree :: (MCTree -> MCTree) -> MCTree -> MCTree
+overTree f tree =
+  case (isLeaf tree) of
+    True  -> tree
+    False ->
+      let
+        children' = map f tree.subForest
+      in
+        updateChildren tree children'
+
+{- ########## HEURISTICS ########## -}
 
 -- | Heuristic to randomly select a node from a list of nodes
 -- | (note: and carry on random seed)
@@ -67,114 +115,104 @@ bestNode g nodes =
       Nothing -> (head nodes, g)
       Just n -> (nodes !! n, g)
 
--- | MCTS step 1: Selection
--- | Start from root and pick children until we find a leaf node
--- | Function takes a heuristic fn. as argument (see above)
-selection :: (StdGen ->[MCTree] -> (MCTree, StdGen))
-          -> StdGen -> MCTree -> MCTree
-selection heuristic randomGen root =
+
+{- ########## MCTS ########## -}
+
+-- | Complete one full playout from node and return the result
+playout :: (MCTree, StdGen) -> (GameResult, StdGen)
+playout (tree, gen) =
+  let
+    result = head $ trajectory (instanTransition gen) [(getState tree)]
+    (_, gen') = genWord8 gen
+  in
+    (result, gen')
+    
+-- | Update node value according to playout from node
+playoutNode :: (MCTree, StdGen) -> (MCTree, StdGen)
+playoutNode (tree, gen) =
+  let
+    (result, gen') = playout (tree, gen)
+  in
+    ((updateValue tree (score result)), gen')
+
+-- | Populate node children with all action nodes
+expand :: (MCTree, StdGen) -> (MCTree, StdGen)
+expand (leaf, gen) =
+  let
+    actions = validMoves (getState leaf)
+    newStates = map (\ac -> partTransition gen (getState leaf) ac) actions
+    children = [(T.Node (TreeNode s a (0, 0)) []) | (s, a) <- (zip newStates actions)]
+    (_, gen') = genWord8 gen
+  in
+    ((T.Node leaf.rootLabel children), gen')
+
+-- | Select random child of node
+randomChild :: (MCTree, StdGen) -> (MCTree, StdGen)
+randomChild (node, gen) =
+  let
+    (i, gen') = uniformR (0, ((length node.subForest)-1)) gen
+  in
+    (((node.subForest) !! i), gen')
+
+-- | Select best child of node
+bestChild :: (MCTree, StdGen) -> (MCTree, StdGen)
+-- if leaf node then return node itself
+bestChild ((T.Node node []), gen) = ((T.Node node []), gen)  
+bestChild (node, gen) =
+  let 
+    values = [(intDiv child.rootLabel.value) | child <- node.subForest]
+    maxValueIndex = L.elemIndex (maximum values) values
+  in
+    case maxValueIndex of
+      Nothing -> ((head node.subForest), gen)
+      Just i -> ((node.subForest !! i), gen)
+ 
+
+-- | Putting above functions together- i.e:
+-- | Expand, playout and update a single node
+expandPlayoutUpdate :: (MCTree, StdGen) -> (MCTree, StdGen)
+expandPlayoutUpdate (tree, gen) =
+  let
+    (expandedTree, gen') = expand (tree, gen)
+    (child, gen'') = randomChild (expandedTree, gen')
+    rest = L.delete child expandedTree.subForest
+    (child', gen''') = playoutNode (child, gen'')
+    children' = child' : rest
+    tree' = T.Node expandedTree.rootLabel children'
+  in
+    ((updateValueChildren tree'), gen''')
+
+
+-- | Run a single iteration of MCTS
+-- | Starting from root
+iteration :: (MCTree, StdGen) -> IO (MCTree, StdGen)
+iteration (root, gen) = do
   case (isLeaf root) of
-    True -> root
-    False -> let
-      (bestChild, gen') = heuristic randomGen root.subForest
-      in
-        selection heuristic gen' bestChild
+      True  -> do
+        -- print (root.rootLabel.value)
+        return $ expandPlayoutUpdate (root, gen)
+      False -> do
+        let (bestchild, gen') = bestChild (root, gen)
+        let restchilds = L.delete bestchild root.subForest
+        -- RECURSIVE STEP
+        (child', gen'') <- iteration (bestchild, gen')
+        -- REJOINING STEP
+        let children' =  child' : restchilds
+        -- print (root.rootLabel.value)
+        return ((updateChildren root children'), gen'')
+    
 
--- | MCTS Step 2.1: Generating search space
-expandLeaf :: StdGen -> MCTree -> MCTree
-expandLeaf gen leaf =
+{- ########## MCTS Runtime Functions ########## -}
+
+pickmove :: (MCTree, StdGen) -> Action
+pickmove (T.Node _ [], _) = Noop
+pickmove (tree, gen) =
   let
-    currentState = getState leaf
-    actions = validMoves currentState
-    newStates = map (\ac -> partTransition gen currentState ac) actions
-    childnodes = map (\(s, a) -> TreeNode s a (0, 0)) (zip newStates actions)
-    children = map (\a -> T.Node a []) childnodes
+    (bestchild, _) = bestChild ((head $ tree.subForest), gen)
   in
-    T.Node leaf.rootLabel children
-  
--- | MCTS Step 2.2: Randomly sample from search space
--- | Randomly sample from children of node to get a child node 
-randomChild :: StdGen -> MCTree -> (MCTree, StdGen)
-randomChild randomGen (T.Node node children) =
-  randomNode randomGen children
+    bestchild.rootLabel.action
 
--- | MCTS Step 2.3: Complete one full playout from C
-playout :: StdGen -> MCTree -> GameResult
-playout gen tree = head $ trajectory (instanTransition gen) [(getState tree)]
-
--- | A partly instantiated transition function
--- | where the only non-autonomous agent (i.e: provides its own actions) is agent 0
-partTransition :: StdGen -> State -> Action -> State
-partTransition gen state action =
-  let
-    state' = pretransition state
-    actions = action : (getAction state' [randomPlayer gen])
-    nextState = transition state actions
-  in
-    nextState 
-
--- | get index of best child if exists, else 0
-fromJust :: Maybe Int -> Int
-fromJust (Just x) = x
-fromJust Nothing = 0
-
-
--- | Generate and randomly sample from search space
-sampleSearchSpace :: StdGen -> MCTree -> (MCTree, MCTree, StdGen)
-sampleSearchSpace gen (T.Node node children) =
-  let
-    expandedNode = expandLeaf gen (T.Node node children)
-    (child, gen') = randomChild gen expandedNode
-  in
-    (expandedNode, child, gen')
-
-
--- | Full expand function: generate search space, select
--- | random node from search space, and expand 
-expand :: StdGen -> MCTree -> (MCTree, StdGen)
-expand randomGen (T.Node node children) =
-  let
-        (expandedNode, child, gen') = sampleSearchSpace randomGen (T.Node node children)
-        -- get index of randomly selected child i.e rci
-        rci = fromJust $ L.elemIndex child expandedNode.subForest
-        -- 2.3: playout
-        result = playout gen' (T.Node node children)
-        toVal x = if (x == Lose) then 0 else (if (x == Win) then 2 else 1)
-        value' = (((fst node.value) + (toVal result)), ((snd node.value) + 1))
-        -- educate ur child
-        child' = T.Node (TreeNode child.rootLabel.state child.rootLabel.action value') []
-        -- update your searchSpace with new child 
-        childs' = (take rci expandedNode.subForest) ++ [child'] ++ (drop (rci + 1) expandedNode.subForest)
-      in
-        -- 3: update child node
-        ((T.Node expandedNode.rootLabel childs'), gen')
-
-
--- | MCTS Step 3: once end state is reached, update child node
--- | Then backpropagate (update values) all the way from child node
--- | to root R
--- | We integrate all the steps into this function
-expandBackprop :: StdGen -> MCTree -> MCTree
-expandBackprop randomGen (T.Node node children) =
-  case (isLeaf (T.Node node children)) of
-    True -> fst $ expand randomGen (T.Node node children)
-    False ->
-      let
-        -- pick best node among children
-        (bestChild, gen') = bestNode randomGen children
-        -- get index of best child i.e bci
-        bci = fromJust $ L.elemIndex bestChild children
-        -- expandBackprop over this best node
-        updatedChild = expandBackprop gen' bestChild
-        -- update your own subtree with new child
-        children' = (take bci children) ++ [updatedChild] ++ (drop (bci + 1) children)
-        -- get total wins and playouts of subtree
-        totalWins = sum [(fst c.rootLabel.value) | c <- children']
-        totalPlayouts = sum [(snd c.rootLabel.value) | c <- children']
-        value' = (totalWins, totalPlayouts)
-      in
-        T.Node (TreeNode node.state node.action value') children'
-
+    
 -- | Take a monte carlo tree, run n iterations of MCTS on it
 -- | yes this is stateful and yes we put it inside the IO monad
 -- | because lazy. this should be its own monad
@@ -183,6 +221,22 @@ runMCTS :: Int -> MCTree -> IO (MCTree)
 runMCTS 0 tree = return tree
 runMCTS n tree =
   do
+    t <- getCurrentTime
+    let seed = floor t.utctDayTime
+    
+    (tree', gen'') <- iteration (tree, (mkStdGen seed))
+    runMCTS (n-1) tree'
+    -- let moves = validMoves (getState tree')
+    -- print $ head moves
+    -- print $ (getState tree').phase
+    -- let state' = partTransition gen' (getState tree') (head moves)
+    -- print $ state'.phase
+    -- print tree'
+    -- putStrLn $ T.drawTree $ fmap show tree'
+    -- print $ pickmove ((head $ tree'.subForest), gen'')
+    -- print "----------------------------"
+    -- runMCTS (n - 1) tree'
+    {-
     -- get current time to use as a random seed
     t <- getCurrentTime
     let seed = floor t.utctDayTime
@@ -197,12 +251,4 @@ runMCTS n tree =
     putStrLn $ T.drawTree $ fmap show tree' 
     -- loop
     runMCTS (n - 1) tree'
-
--- | transition function instantiated for our specific agents
-instanTransition :: StdGen -> State -> State
-instanTransition randomGen state =
-  let
-    (s1, gen') = uniformR (0, 100000) randomGen
-    (s2, _) = uniformR (0, 100000) gen'
-  in
-    step state [(randomPlayer (mkStdGen s1)), (randomPlayer (mkStdGen s2))]
+    -}

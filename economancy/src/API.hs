@@ -19,41 +19,38 @@ import World
 data CardJSON = CardJSON {name :: String,
                           uses :: Int}
                 deriving (Generic, Show, Read)
+
 instance FromJSON CardJSON
+instance ToJSON CardJSON
 
 
 data PlayerJSON = PlayerJSON {coins :: Int,
                               buys :: Int,
                               cards :: [CardJSON]}
                   deriving (Generic, Show, Read)
+
 instance FromJSON PlayerJSON
+instance ToJSON PlayerJSON
 
 
 data FalseOrIndex = None | Index Int
                     deriving (Generic, Show, Read)
-data AttackingJSON =
-  AttackingJSON {attackPhase :: String,
-                 attacker :: Int,
-                 attackerCard :: FalseOrIndex}
-  deriving (Generic, Show, Read)
-data EndJSON = EndJSON {endPhase :: String,
-                        winner :: FalseOrIndex}
-               deriving (Generic, Show, Read)
-
-data PhaseName = PhaseName {phaseName :: String}
-                 deriving (Generic, Show, Read)
-
-data PhaseJSON = InvestingJ PhaseName
-               | AttackingJ AttackingJSON
-               | BuyJ PhaseName
-               | EndJ EndJSON
-               deriving (Generic, Show, Read)
 
 instance FromJSON FalseOrIndex where
   parseJSON = withText "FalseOrIndex" $ \text ->
     case text of
       "false" -> return None
       x       -> return $ Index $ read $ T.unpack x   
+instance ToJSON FalseOrIndex where
+  toJSON None = "false"
+  toJSON (Index x) = toJSON x
+
+
+data AttackingJSON =
+  AttackingJSON {attackPhase :: String,
+                 attacker :: Int,
+                 attackerCard :: FalseOrIndex}
+  deriving (Generic, Show, Read)
 
 instance FromJSON AttackingJSON where
   parseJSON = withObject "AttackingJSON" $ \obj -> do
@@ -62,18 +59,50 @@ instance FromJSON AttackingJSON where
     attackerCard <- obj .: "attacker-card"
     return (AttackingJSON attackPhase attacker attackerCard)
 
+instance ToJSON AttackingJSON where
+  toJSON (AttackingJSON ap atk atkC) =
+    object ["name" .= (T.pack ap),
+            "attacker" .= atk,
+            "attacker-card" .= atkC]
+
+
+data EndJSON = EndJSON {endPhase :: String,
+                        winner :: FalseOrIndex}
+               deriving (Generic, Show, Read)
+
 instance FromJSON EndJSON where
   parseJSON = withObject "EndJSON" $ \obj -> do
     endPhase <- obj .: "name"
     winner <- obj .: "winner"
     return (EndJSON endPhase winner)
 
+instance ToJSON EndJSON where
+  toJSON (EndJSON endPhase winner) =
+    object ["name" .= (T.pack endPhase),
+            "winner" .= winner]
+
+
+data PhaseName = PhaseName {phaseName :: String}
+                 deriving (Generic, Show, Read)
+
 instance FromJSON PhaseName where
   parseJSON = withObject "PhaseName" $ \obj -> do
     phaseName <- obj .: "name"
     return (PhaseName phaseName)
+
+instance ToJSON PhaseName where
+  toJSON (PhaseName pn) =
+    object ["name" .= (T.pack pn)]
+
+
+data PhaseJSON = InvestingJ PhaseName
+               | AttackingJ AttackingJSON
+               | BuyJ PhaseName
+               | EndJ EndJSON
+               deriving (Generic, Show, Read)
     
 instance FromJSON PhaseJSON
+instance ToJSON PhaseJSON
 
 
 type ShopJSON = Dict.Map String Int
@@ -95,59 +124,52 @@ instance FromJSON StateJSON where
     player <- obj .: "player"
     return (StateJSON day phase shop players player)
 
+instance ToJSON StateJSON where
+  toJSON (StateJSON d ph sh pls pli) =
+    object ["day" .= d,
+            "phase" .= ph,
+            "shop" .= sh,
+            "players" .= pls,
+            "player" .= pli]
 
-instance ToJSON PlayerCard where
-  toJSON playerCard =
-    object ["name" .= (Cards.playerCardName playerCard),
-            "uses" .= (Cards.uses playerCard)]
 
+toCardJSON :: PlayerCard -> CardJSON
+toCardJSON card =
+  CardJSON (Cards.playerCardName card) (Cards.uses card)
 
-instance ToJSON Player where
-  toJSON (Player coins buys cards) =
-    object ["coins" .= coins,
-            "buys"  .= buys,
-            "cards" .= (map toJSON cards)]
+  
+toPlayerJSON :: Player -> PlayerJSON
+toPlayerJSON (Player coins buys cards) =
+  PlayerJSON coins buys (map toCardJSON cards)
 
  
-instance ToJSON Phase where
-  toJSON Earning = object ["name" .= (T.pack "investing")]
-  toJSON Investing =
-    object ["name" .= (T.pack "investing")]
-  toJSON (Attacking idx Nothing) =
-    object ["name" .= (T.pack "attacking"),
-            "attacker" .= idx,
-            "attacker-card" .= (T.pack "false")]
-  toJSON (Attacking idx (Just x)) =
-    object ["name" .= (T.pack "attacking"),
-            "attacker" .= idx,
-            "attacker-card" .= x]
-  toJSON (Defending idx (Just x)) =
-    object ["name" .= (T.pack "attacking"),
-            "attacker" .= idx,
-            "attacker-card" .= x]
-  toJSON Buying =
-    object ["name" .= (T.pack "buy")]
-  toJSON (End Nothing) =
-    object ["name" .= (T.pack "end"),
-            "winner" .= (T.pack "false")]
-  toJSON (End (Just wi)) =
-    object ["name" .= (T.pack "end"),
-            "winner" .= wi]
+toPhaseJSON :: Phase -> PhaseJSON
+toPhaseJSON Earning = InvestingJ (PhaseName "investing")
+toPhaseJSON Investing = InvestingJ (PhaseName "investing")
+toPhaseJSON (Attacking idx Nothing) =
+  AttackingJ (AttackingJSON "attacking" idx None)
+toPhaseJSON (Attacking idx (Just x)) =
+  error "attacking phase with (just x)"
+toPhaseJSON (Defending idx Nothing) =
+  error "Defending phase with Nothing"
+toPhaseJSON (Defending idx (Just x)) =
+  AttackingJ (AttackingJSON "attacking" idx (Index x))
+toPhaseJSON Buying = BuyJ (PhaseName "buy")
+toPhaseJSON (End Nothing) = EndJ (EndJSON "end" None)
+toPhaseJSON (End (Just wi)) = EndJ (EndJSON "end" (Index wi))
 
-shopToJSON :: Shop -> ShopJSON
-shopToJSON shop = Dict.mapKeys playerCardName shop
+
+toShopJSON :: Shop -> ShopJSON
+toShopJSON shop = Dict.mapKeys playerCardName shop
 
 fromShopJSON :: ShopJSON -> Shop
 fromShopJSON shopjson =
   Dict.mapKeys (\s -> if (s == "Sorcerer's Stipend") then (strToCard s 0) else (strToCard s 1)) shopjson
 
-instance ToJSON State where
-  toJSON (State day phase shop pl plI) =
-    object ["day" .= day,
-            "phase" .= phase,
-            "shop" .= (shopToJSON shop),
-            "players" .= pl,
-            "player" .= plI]
+
+toStateJSON :: State -> StateJSON
+toStateJSON (State day phase shop pl plI) =
+  StateJSON day (toPhaseJSON phase) (toShopJSON shop) (map toPlayerJSON pl) plI
 
 
 fromCardJSON :: CardJSON -> PlayerCard

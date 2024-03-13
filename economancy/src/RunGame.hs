@@ -7,6 +7,7 @@ import qualified Data.List as L
 import Data.Aeson
 import Data.Aeson.Encode.Pretty
 import qualified Data.ByteString.Lazy.Char8 as B
+import System.Random
 
 import Cards
 import World
@@ -75,3 +76,24 @@ trajectory transitionFn (s0:s1:sx)
       Just wID -> toGameResult wID s0.players
       Nothing -> trajectory transitionFn ((transitionFn s0):s0:s1:sx)
 
+{- ########## Specific Transition Functions ########## -}
+-- | A partly instantiated transition function
+-- | where the only non-autonomous agent (i.e: provides its own actions) is agent 0
+partTransition :: StdGen -> State -> Action -> State
+partTransition gen state action =
+  let
+    state' = pretransition state
+    actions = action : (getAction state' [randomPlayer gen])
+    nextState = transition state' actions
+  in
+    nextState 
+
+
+-- | transition function instantiated for our specific agents
+instanTransition :: StdGen -> State -> State
+instanTransition randomGen state =
+  let
+    (s1, gen') = uniformR (0, 100000) randomGen
+    (s2, _) = uniformR (0, 100000) gen'
+  in
+    step state [(randomPlayer (mkStdGen s1)), (randomPlayer (mkStdGen s2))]

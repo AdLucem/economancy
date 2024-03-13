@@ -152,19 +152,18 @@ Start from root =R= and pick a leaf node =L= via one of three methods:
 Here, we demonstrate finding a leaf node in a treenode using some given function =heuristic= (that takes a list of nodes and selects one particular node and returns that). We use a random function in the =heuristic=. 
 
 #+BEGIN_SRC haskell
-isLeaf :: MCTree -> Bool
-isLeaf (Node _ []) = True 
-isLeaf _ = False
-
-selection :: (StdGen ->[MCTree] -> (MCTree, StdGen))
-          -> StdGen -> MCTree -> MCTree
-selection heuristic randomGen root =
-  case (isLeaf root) of
-    True -> root
-    False -> let
-      (bestChild, gen') = heuristic randomGen root.subForest
-      in
-        selection heuristic gen' bestChild
+-- | Select best child of node
+bestChild :: (MCTree, StdGen) -> (MCTree, StdGen)
+-- if leaf node then return node itself
+bestChild ((T.Node node []), gen) = ((T.Node node []), gen)  
+bestChild (node, gen) =
+  let 
+    values = [(intDiv child.rootLabel.value) | child <- node.subForest]
+    maxValueIndex = L.elemIndex (maximum values) values
+  in
+    case maxValueIndex of
+      Nothing -> ((head node.subForest), gen)
+      Just i -> ((node.subForest !! i), gen)
 #+END_SRC
 
 ** Step 2: Expansion And Backpropagate
@@ -238,8 +237,13 @@ expandLeaf (Node node children) =
 We now randomly sample from the children of the given node to get a child node =C=.
 
 #+BEGIN_SRC haskell
-randomChild :: MCTree -> MCTree 
-randomChild (Node node children) = [random logic]
+-- | Select random child of node
+randomChild :: (MCTree, StdGen) -> (MCTree, StdGen)
+randomChild (node, gen) =
+  let
+    (i, gen') = uniformR (0, ((length node.subForest)-1)) gen
+  in
+    (((node.subForest) !! i), gen')
 #+END_SRC
 
 *** Step 2.3: Complete one full playout from =C=
@@ -269,32 +273,60 @@ Once end state is reached, update =C=, then backpropagate (update values) all th
 
 We actually integrate this with step 2- we have a single function to both expand and backpropagate.
 
-Assume we have a function `heuristic` that, given a list of nodes, will return the best node.
 
-#+BEGIN_SRC  haskell
-heuristic :: [Node] -> Node
-#+END_SRC
+#+BEGIN_SRC haskell
+-- | Update node value according to playout from node
+playoutNode :: (MCTree, StdGen) -> (MCTree, StdGen)
+playoutNode (tree, gen) =
+  let
+    (result, gen') = playout (tree, gen)
+  in
+    ((updateValue tree (score result)), gen')
 
-#+BEGIN_SRC haskell 
+-- | Populate node children with all action nodes
+expand :: (MCTree, StdGen) -> (MCTree, StdGen)
+expand (leaf, gen) =
+  let
+    actions = validMoves (getState leaf)
+    newStates = map (\ac -> partTransition gen (getState leaf) ac) actions
+    children = [(T.Node (TreeNode s a (0, 0)) []) | (s, a) <- (zip newStates actions)]
+    (_, gen') = genWord8 gen
+  in
+    ((T.Node leaf.rootLabel children), gen')
 
-expandBackprop :: MCTree -> MCTree
-expandBackprop (Node node children) = 
-    case (isChild node) of
-      True -> let 
-                result = playout (Node node children)
-		toVal x = if (x == Lose) then 0 else 1
-                value' = (((fst node.value) + (toVal x)), ((snd node.value) + 1))
-              in
-	        Node (TreeNode node.state node.action value') []
-      False -> let
-                 -- recurse this function over all children
-                 children' = map expandBackprop children
-                 -- collect total wins/playouts from all children
-                 totalWins = [(fst c.value) | c <- children']
-                 totalPlayouts = [(snd c.value) | c <- children']
-                 value' = (totalWins, totalPlayouts)
-               in
-                 Node (node.state node.action value') children'
+-- | Putting above functions together- i.e:
+-- | Expand, playout and update a single node
+expandPlayoutUpdate :: (MCTree, StdGen) -> (MCTree, StdGen)
+expandPlayoutUpdate (tree, gen) =
+  let
+    (expandedTree, gen') = expand (tree, gen)
+    (child, gen'') = randomChild (expandedTree, gen')
+    rest = L.delete child expandedTree.subForest
+    (child', gen''') = playoutNode (child, gen'')
+    children' = child' : rest
+    tree' = T.Node expandedTree.rootLabel children'
+  in
+    ((updateValueChildren tree'), gen''')
+
+
+-- | Run a single iteration of MCTS
+-- | Starting from root
+iteration :: (MCTree, StdGen) -> IO (MCTree, StdGen)
+iteration (root, gen) = do
+  case (isLeaf root) of
+      True  -> do
+        -- print (root.rootLabel.value)
+        return $ expandPlayoutUpdate (root, gen)
+      False -> do
+        let (bestchild, gen') = bestChild (root, gen)
+        let restchilds = L.delete bestchild root.subForest
+        -- RECURSIVE STEP
+        (child', gen'') <- iteration (bestchild, gen')
+        -- REJOINING STEP
+        let children' =  child' : restchilds
+        -- print (root.rootLabel.value)
+        return ((updateChildren root children'), gen'')
+ 
 #+END_SRC
 
 

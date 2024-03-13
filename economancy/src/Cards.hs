@@ -167,6 +167,8 @@ ghost = BasicCard "Ghost" 3 2 2 2 0 (0, 0, 1)
 seniorWorker = BasicCard "Senior Worker" 2 2 2 2 0 (1, 1, 1)
 goldFish = BasicCard "Gold Fish" 1 2 3 1 0 (0, 0, 4)
 
+blank :: BasicCard
+blank = BasicCard "Blank" 0 0 0 0 0 (0, 0, 0)
 
 magicBeanStock =
   MagicBeanStock $ BasicCard "Magic Bean Stock" 1 1 1 1 0 (0, 0, 0) 
@@ -186,7 +188,6 @@ strToCard s uses =
     "Gold Fish"          -> Simple goldFish uses
     "Magic Bean Stock"   -> MBS magicBeanStock uses
     "Bubble"             -> B bubble uses
-
-
+    otherwise            -> Simple blank 0
   
 

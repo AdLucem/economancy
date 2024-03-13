@@ -2,10 +2,15 @@
 #+title: The Program at an Abstract Level
 
 
-LOOP:
-    1. for player in players: GameMachine --[State]--> Players
-    2. for player in players: Player --[Action]--> GameMachine
-    3. GameMachine :: State -> [Action] -> State 
+HOW TO RUN WITH GAME DRIVER:
+
+```
+$ stack build economancy
+$ cp .stack-work/dist/x86_64-linux/ghc-9.6.4/build/economancy/economancy .
+$ <game driver executable> economancy <any other players>
+```
+
+or: you can put `economancy-x86_64-linux` in the top-level directory of this project and run `compile.sh`.
 
 * Game Machine
 ** Earning Phase
@@ -84,7 +89,6 @@ for player in players:
 
 return State (players <- [Player]
 
-
 * MDP
 
 
@@ -95,7 +99,6 @@ reward :: State -> Reward
 
 transition :: State -> Action -> State
 #+END_SRC
-
 
 * MultiAgent to Single Agent: We Are All Player 0
 

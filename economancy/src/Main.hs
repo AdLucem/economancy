@@ -166,17 +166,11 @@ prettystate state = B.unpack $ encodePretty $ toStateJSON state
 
 loop = do
   line <- getLine
-  print line
-  print "-------------"
-  let state = decodeState (B.pack line)
-  print state
-  mcts_tree <- runMCTS 50 (tonode state)
-  let move = pickmove (mcts_tree, (mkStdGen 137))
-  print move
+  let state = decodeState $ B.pack line
+  tree <- runMCTS 10 (tonode state)
+  let move = pickmove (tree, (mkStdGen 137))
+  putStrLn $ toShowAction state move
+  hFlush stdout
   loop
   
-main = do
-  print "hello world"
-  loop
-  
---  runMCTS 10 initnode
+main = loop

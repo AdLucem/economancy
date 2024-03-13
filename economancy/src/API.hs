@@ -100,9 +100,31 @@ data PhaseJSON = InvestingJ PhaseName
                | BuyJ PhaseName
                | EndJ EndJSON
                deriving (Generic, Show, Read)
-    
-instance FromJSON PhaseJSON
-instance ToJSON PhaseJSON
+
+fromMaybeThing :: Maybe a -> a
+fromMaybeThing Nothing = error "what"
+fromMaybeThing (Just xs) = xs
+
+instance FromJSON PhaseJSON where
+  parseJSON = withObject "PhaseJSON" $ \obj -> do
+    pname <- obj .: "name"
+    case pname of
+      "investing" -> return $ InvestingJ (PhaseName pname)
+      "attacking" -> do
+        attacker <- obj .: "attacker"
+        atkcard <- obj .: "attacker-card"
+        return $ AttackingJ (AttackingJSON pname attacker atkcard)
+      "buy" -> return $ BuyJ (PhaseName pname)
+      "end" -> do
+        winner <- obj .: "winner"
+        return $ EndJ (EndJSON pname winner)
+
+  
+instance ToJSON PhaseJSON where
+  toJSON (InvestingJ phasename) = toJSON phasename
+  toJSON (AttackingJ attack) = toJSON attack
+  toJSON (BuyJ buy) = toJSON buy
+  toJSON (EndJ end) = toJSON end
 
 
 type ShopJSON = Dict.Map String Int
@@ -210,3 +232,22 @@ fromStateJSON :: StateJSON -> State
 fromStateJSON (StateJSON d ph sh pls pli) =
   State d (fromPhaseJSON ph) (fromShopJSON sh) (map fromPlayerJSON pls) pli
 
+
+toShowAction :: State -> Action -> String
+toShowAction state action =
+  case action of
+    Noop -> case state.phase of
+      Earning -> show [0]
+      Investing -> show [0]
+      Attacking _ _ -> show [0]
+      Defending _ _ -> show [0]
+      Buying -> show ["Pass"]
+      (End _) -> error "Ending game!"
+    (Invest i) -> show [i]
+    (Attack i) -> show [i]
+    (Defend i) -> show [i]
+    (Buy Nothing) -> show ["Pass"]
+    (Buy (Just pc)) -> show [playerCardName pc]
+    
+
+      

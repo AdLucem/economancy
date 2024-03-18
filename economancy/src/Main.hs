@@ -152,7 +152,7 @@ randomstep state = do
 
 
 fromMaybeJSON :: (FromJSON a) => Maybe a -> a
-fromMaybeJSON Nothing = error "decoding error!"
+fromMaybeJSON Nothing = error "decoding error"
 fromMaybeJSON (Just s) = s
 
 encodeState :: State -> B.ByteString
@@ -164,13 +164,89 @@ decodeState = fromStateJSON . fromMaybeJSON . decode
 prettystate :: State -> String
 prettystate state = B.unpack $ encodePretty $ toStateJSON state
 
+
+getFalse :: String -> String -> String
+getFalse [] acc = reverse acc
+getFalse (s:xs) acc =
+  case s of
+    'f' ->
+      let
+        alse = take 4 xs
+      in
+        if (alse == "alse")
+        then (getFalse (drop 4 xs) ("\"eslaf\"" ++ acc))
+        else (getFalse xs (s : acc))
+    otherwise -> getFalse xs (s : acc)
+
+
 loop = do
   line <- getLine
-  let state = decodeState $ B.pack line
-  tree <- runMCTS 10 (tonode state)
+  let state = decodeState $ B.pack $ getFalse line ""
+  tree <- runMCTS 50 (tonode state)
   let move = pickmove (tree, (mkStdGen 137))
   putStrLn $ toShowAction state move
   hFlush stdout
   loop
   
 main = loop
+
+
+{-
+s :: String
+s = "{\"day\":3,\"phase\":{\"attacker\":1,\"attacker_card\":1,\"name\":\"attacking\"},\"player\":0,\"players\":[{\"buys\":1,\"cards\":[{\"name\":\"Sorcerer's Stipend\",\"uses\":0},{\"name\":\"Magic Bean Stock\",\"uses\":0}],\"coins\":0},{\"buys\":1,\"cards\":[{\"name\":\"Sorcerer's Stipend\",\"uses\":0},{\"name\":\"Worker\",\"uses\":1},{\"name\":\"Gold Fish\",\"uses\":0}],\"coins\":4}],\"shop\":{\"Board of Monopoly\":4,\"Bubble\":2,\"Ghost\":4,\"Gold Fish\":1,\"Incantation\":6,\"Magic Bean Stock\":1,\"Senior Worker\":4,\"Worker\":3}}"
+
+diff :: String -> String -> String
+diff s1 s2 = [if elem x s2 then '_' else x | x <- s1]
+-}
+{-
+{"day":3,
+"phase":{"attacker":1,"attacker_card":1,"name":"attacking"},
+"player":0,
+"players":[
+{"buys":1,"cards":[{"name":"Sorcerer's Stipend","uses":0},{"name":"Magic Bean Stock","uses":0}],"coins":0},
+{"buys":1,"cards":[{"name":"Sorcerer's Stipend","uses":0},{"name":"Worker","uses":1},{"name":"Gold Fish","uses":0}],"coins":4}],
+"shop":
+{"Board of Monopoly":4,
+"Bubble":2,
+"Ghost":4,
+"Gold Fish":1,
+"Incantation":6,
+"Magic Bean Stock":1,
+"Senior Worker":4,
+"Worker":3}}
+-}
+{-
+inv :: StateJSON
+inv =
+  let
+    phase = AttackingJSON "attacking" 1 (Index 1)
+    card1 = CardJSON "Sorcerer's Stipend" 0
+    card2 = CardJSON "Worker" 0
+    card3 = CardJSON "Gold Fish" 0
+    card4 = CardJSON "Magic Bean Stock" 0
+    player1 = PlayerJSON 0 1 [card1, card4]
+    player2 = PlayerJSON 4 1 [card1, card2, card3]
+    shop = Dict.fromList [("Board of Monopoly", 4),
+                          ("Bubble", 2),
+                          ("Ghost", 4),
+                          ("Gold Fish", 1),
+                          ("Incantation", 6),
+                          ("Magic Bean Stock", 1),
+                          ("Senior Worker", 4),
+                          ("Worker", 3)]
+  in
+    StateJSON 3 (AttackingJ phase) shop [player1, player2] 0
+    
+sdec :: Maybe StateJSON
+sdec = decode $ B.pack $ getFalse s ""
+
+inv' :: Maybe StateJSON
+inv' = decode $ encode inv
+
+svalue :: Maybe Value
+svalue = decode $ B.pack $ getFalse s ""
+
+main = do
+  print sdec
+--  print $ decodeFromValue svalue
+-}

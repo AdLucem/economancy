@@ -7,9 +7,11 @@ module API where
 
 import Control.Applicative
 import Data.Aeson
+import qualified Data.Aeson.KeyMap as KeyMap
 import qualified Data.Text as T
 import GHC.Generics
 import qualified Data.Map as Dict
+import Data.Scientific
 
 import Cards
 import World
@@ -52,18 +54,20 @@ data AttackingJSON =
                  attackerCard :: FalseOrIndex}
   deriving (Generic, Show, Read)
 
+{-
 instance FromJSON AttackingJSON where
   parseJSON = withObject "AttackingJSON" $ \obj -> do
     attackPhase <- obj .: "name"
     attacker <- obj .: "attacker"
-    attackerCard <- obj .: "attacker-card"
+    attackerCard <- obj .: "attacker_card"
     return (AttackingJSON attackPhase attacker attackerCard)
+-}
 
 instance ToJSON AttackingJSON where
   toJSON (AttackingJSON ap atk atkC) =
     object ["name" .= (T.pack ap),
             "attacker" .= atk,
-            "attacker-card" .= atkC]
+            "attacker_card" .= atkC]
 
 
 data EndJSON = EndJSON {endPhase :: String,
@@ -105,20 +109,101 @@ fromMaybeThing :: Maybe a -> a
 fromMaybeThing Nothing = error "what"
 fromMaybeThing (Just xs) = xs
 
+
+fromSc :: Scientific -> Int
+fromSc sc = round $ toRealFloat sc
+
+decodeFromValue :: Maybe Value -> PhaseJSON
+decodeFromValue Nothing = error "Parsing error in PhaseJSON!"
+decodeFromValue (Just (Object json)) =
+  let
+    phase = json KeyMap.!? "phase"
+  in
+    case phase of
+      Nothing -> error "Parsing error in PhaseJSON!"
+      (Just (Object ph)) ->
+        let
+          phaselist = KeyMap.toList ph
+          name = [y | (x, y) <- phaselist, x == "name"] !! 0 
+        in
+          case name of
+            (String "investing") ->
+              InvestingJ (PhaseName "investing")
+            (String "attacking") ->
+              let
+                (Number x) = [y | (x, y) <- phaselist, x == "attacker"] !! 0
+                atkcard = [y | (x, y) <- phaselist, x == "attacker_card"] !! 0
+              in
+                case atkcard of
+                  (String "false") ->
+                    AttackingJ (AttackingJSON "attacking" (fromSc x) None)
+                  (Number y) ->
+                    AttackingJ (AttackingJSON "attacking" (fromSc x) (Index $ fromSc y))
+            (String "buy") ->
+              BuyJ (PhaseName "buy")
+            (String "end") ->
+              let
+                winner = [y | (x, y) <- phaselist, y == "winner"] !! 0
+              in
+                case winner of
+                  (String "false") -> 
+                    EndJ (EndJSON "end" None)
+                  (Number x) ->
+                    EndJ (EndJSON "end" (Index $ fromSc x))
+              
+
+decodeFromObject :: Value -> PhaseJSON
+decodeFromObject (Object ph) =
+  let
+    phaselist = KeyMap.toList ph
+    name = [y | (x, y) <- phaselist, x == "name"] !! 0 
+  in
+    case name of
+      (String "investing") ->
+        InvestingJ (PhaseName "investing")
+      (String "attacking") ->
+        let
+          (Number x) = [y | (x, y) <- phaselist, x == "attacker"] !! 0
+          atkcard = [y | (x, y) <- phaselist, x == "attacker_card"] !! 0
+        in
+          case atkcard of
+            (String "false") ->
+              AttackingJ (AttackingJSON "attacking" (fromSc x) None)
+            (Number y) ->
+              AttackingJ (AttackingJSON "attacking" (fromSc x) (Index $ fromSc y))
+      (String "buy") ->
+        BuyJ (PhaseName "buy")
+      (String "end") ->
+        let
+          winner = [y | (x, y) <- phaselist, y == "winner"] !! 0
+        in
+          case winner of
+            (String "false") -> 
+              EndJ (EndJSON "end" None)
+            (Number x) ->
+              EndJ (EndJSON "end" (Index $ fromSc x))
+
+  
 instance FromJSON PhaseJSON where
-  parseJSON = withObject "PhaseJSON" $ \obj -> do
+  parseJSON obj = return $ decodeFromObject obj
+
+{-withObject "PhaseJSON" $ \obj ->
+    do
     pname <- obj .: "name"
     case pname of
       "investing" -> return $ InvestingJ (PhaseName pname)
       "attacking" -> do
         attacker <- obj .: "attacker"
-        atkcard <- obj .: "attacker-card"
-        return $ AttackingJ (AttackingJSON pname attacker atkcard)
+        atkcard <- obj .: "attacker_card"
+        case atkcard of
+          "false" -> 
+            return $ AttackingJ (AttackingJSON pname attacker None)
+          x -> return $ AttackingJ (AttackingJSON pname attacker (Index (read x)))
       "buy" -> return $ BuyJ (PhaseName pname)
       "end" -> do
         winner <- obj .: "winner"
         return $ EndJ (EndJSON pname winner)
-
+-}
   
 instance ToJSON PhaseJSON where
   toJSON (InvestingJ phasename) = toJSON phasename

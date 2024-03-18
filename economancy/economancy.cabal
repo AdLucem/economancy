@@ -34,7 +34,8 @@ executable economancy
                        aeson-pretty,
                        bytestring,
                        random,
-                       time
+                       time,
+                       scientific
   ghc-options:         -Wall
                        -Wcompat
                        -Widentities

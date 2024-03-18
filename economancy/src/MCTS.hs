@@ -208,7 +208,8 @@ pickmove :: (MCTree, StdGen) -> Action
 pickmove (T.Node _ [], _) = Noop
 pickmove (tree, gen) =
   let
-    (bestchild, _) = bestChild ((head $ tree.subForest), gen)
+    (bestchild, _) = bestChild (tree, gen)
+    -- (bestchild, _) = bestChild ((head $ tree.subForest), gen)
   in
     bestchild.rootLabel.action
 
@@ -225,6 +226,7 @@ runMCTS n tree =
     let seed = floor t.utctDayTime
     
     (tree', gen'') <- iteration (tree, (mkStdGen seed))
+
     runMCTS (n-1) tree'
     -- let moves = validMoves (getState tree')
     -- print $ head moves

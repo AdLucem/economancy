@@ -51,8 +51,10 @@ movesAttacking state =
 youAreDefending :: Player -> [Action]
 youAreDefending player =
   let
-    enumCards = zip [0..((length player.cardSet) - 1)] player.cardSet
-    defendCards = filter (\(i, crd) -> ((defend crd) /= Nothing) && ((uses crd) > 0)) enumCards
+    enumCards = tail $ zip [0..((length player.cardSet) - 1)] player.cardSet
+    defendCards = filter (\(i, crd) -> ((defend crd) /= Nothing)
+                           && (defend crd /= (Just 0))
+                           && ((uses crd) > 0)) enumCards
   in
     map (\x -> Defend x) [i | (i, crd) <- defendCards]
 
